@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>お気に入りの料理 | 今日のレシピ探索</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="favorites-page">
+  <header class="site-header favorites-page-header">
+    <a class="brand" href="search.html" aria-label="レシピ探索へ戻る">
+      <span class="brand-mark" aria-hidden="true">
+        <img class="favorites-brand-logo" src="images/recipe-explorer-logo.png" alt="">
+      </span>
+      <span class="search-title">
+        <h1>今日のレシピ探索</h1>
+        <p>保存した料理を、いつでも見比べられます</p>
+      </span>
+    </a>
+    <nav class="favorites-page-nav" aria-label="ページ内ナビゲーション">
+      <a class="back-to-search" href="search.html">← レシピを探す</a>
+      <a class="home-link" href="atlas-discovery.html">類似度マップ</a>
+      <a class="home-link" href="index.html">トップへ戻る</a>
+    </nav>
+  </header>
+
+  <main class="favorites-page-main">
+    <section class="favorites-page-hero" aria-labelledby="favorites-page-title">
+      <div>
+        <p class="eyebrow">SAVED RECIPES</p>
+        <h2 id="favorites-page-title">お気に入りの料理 <span id="favorite-total">0</span><small>件</small></h2>
+        <p>気になる料理を並べて、材料数と調理時間で比べられます。</p>
+      </div>
+      <p class="favorites-page-note">♡ をもう一度押すと、保存一覧から外せます。</p>
+    </section>
+
+    <section id="favorites-empty-state" class="favorites-empty-state" hidden aria-labelledby="favorites-empty-title">
+      <span class="favorites-empty-mark" aria-hidden="true">♡</span>
+      <div>
+        <p class="eyebrow">NO SAVED RECIPES YET</p>
+        <h2 id="favorites-empty-title">まだお気に入りはありません</h2>
+        <p>レシピ探索画面で料理の ♡ を押すと、ここに保存されます。</p>
+        <a class="empty-state-action" href="search.html">料理を探しに行く</a>
+      </div>
+    </section>
+
+    <section id="favorite-recommendations" class="favrec-section" aria-labelledby="favrec-title" hidden>
+      <p class="eyebrow">BASED ON YOUR FAVORITES</p>
+      <h2 id="favrec-title">お気に入りからおすすめの料理</h2>
+      <p id="favrec-ingredients"></p>
+      <p id="favrec-summary" aria-live="polite"></p>
+      <div id="favrec-list" class="favrec-list"></div>
+    </section>
+
+    <section id="favorites-explorer" class="favorites-explorer" aria-labelledby="favorites-graph-title">
+      <div class="favorites-section-heading">
+        <div>
+          <p class="eyebrow">COMPARE YOUR PICKS</p>
+          <h2 id="favorites-graph-title">お気に入りをグラフで見比べる</h2>
+          <p>横軸は主な材料の数、縦軸は調理時間です。点を選ぶと、下のカードも強調されます。</p>
+        </div>
+      </div>
+      <div id="favorite-legend" class="favorite-legend" aria-label="料理ジャンルの凡例"></div>
+      <p id="favorite-selection-summary" class="favorite-selection-summary" hidden aria-live="polite"></p>
+      <div class="favorites-scatter-wrap"><svg id="favorite-scatter" role="img" aria-label="お気に入りの料理を材料数と調理時間で比較する散布図"></svg></div>
+    </section>
+
+    <section id="favorite-cards-section" class="favorite-cards-section" aria-labelledby="favorite-cards-title">
+      <div class="favorites-section-heading">
+        <div>
+          <p class="eyebrow">YOUR COLLECTION</p>
+          <h2 id="favorite-cards-title">保存した料理 <span id="favorite-card-count">0</span><small>件</small></h2>
+          <p>写真を見ながら、もう一度作りたい料理を選べます。</p>
+        </div>
+      </div>
+      <div id="favorite-cards" class="favorites-page-grid"></div>
+    </section>
+  </main>
+
+  <div id="favorite-tooltip" class="favorite-tooltip" hidden role="status"></div>
+  <p id="favorite-live" class="sr-only" aria-live="polite"></p>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="data-adapter.js"></script>
+  <script src="favorites.js"></script>
+  <script src="vector-core.js"></script>
+  <script src="favorite-recommendations.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>レシピの埋め込み比べ(試作)</title>
+  <style>
+    :root {
+      --ink: #2b2620; --muted: #7a7168; --line: #e7ddd2; --bg: #faf7f2; --card: #fff;
+      --orange: #e5793a; --orange-soft: #fff0e4; --mint: #2e9d6f; --mint-soft: #e6f5ee;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 14px; }
+    header { padding: 18px 24px 8px; }
+    header h1 { margin: 0; font-size: 22px; color: #ad4315; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; max-width: 980px; line-height: 1.6; }
+    section { margin: 14px 24px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    h2 { margin: 0 0 4px; font-size: 17px; color: #ad4315; }
+    .conclusion { background: var(--mint-soft); border-color: #b9e2cf; }
+    .conclusion p, .conclusion li { font-size: 13px; line-height: 1.7; }
+    .conclusion ul { margin: 4px 0 0; padding-left: 20px; }
+    .hint { margin: 0 0 8px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 6px 0; font-size: 13px; }
+    select, input[type="text"], button { font: inherit; }
+    select, input[type="text"] { padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    input[type="text"] { min-width: 240px; }
+    button { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+    button.primary { background: var(--orange); border-color: var(--orange); color: #fff; font-weight: 700; }
+    button:hover { border-color: var(--orange); }
+    #metrics, .tally { overflow-x: auto; }
+    input[type="text"] { max-width: 100%; }
+    table.metrics { border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+    table.metrics th, table.metrics td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    table.metrics th:first-child, table.metrics td:first-child, table.metrics th:nth-child(2), table.metrics td:nth-child(2) { text-align: left; }
+    table.metrics td.best { background: var(--mint-soft); font-weight: 700; color: #1f6e4d; }
+    .bar { display: inline-block; height: 8px; background: #f2c3a3; border-radius: 2px; vertical-align: middle; margin-left: 6px; }
+    .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 8px; }
+    @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+    .col { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; background: #fffdfa; min-width: 0; }
+    .col h3 { margin: 0 0 6px; font-size: 14px; }
+    .col h3 small { color: var(--muted); font-weight: 400; }
+    ol.list { margin: 0; padding-left: 22px; }
+    ol.list li { margin: 3px 0; line-height: 1.4; }
+    ol.list li .s { color: var(--muted); font-size: 11px; margin-left: 4px; }
+    .chip { display: inline-block; font-size: 10px; padding: 0 6px; border-radius: 999px; margin-left: 4px; background: #f3ece4; color: #6b625b; }
+    .chip.same { background: var(--mint-soft); color: #1f6e4d; }
+    .seed { padding: 8px 10px; background: var(--orange-soft); border-radius: 10px; margin-top: 8px; font-size: 13px; }
+    .vote { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .tally { margin-top: 10px; font-size: 13px; }
+    .tally table { border-collapse: collapse; }
+    .tally td, .tally th { padding: 3px 10px; border-bottom: 1px solid var(--line); text-align: right; }
+    .tally td:first-child, .tally th:first-child { text-align: left; }
+    #map-box { position: relative; }
+    #map { display: block; width: 100%; background: #fffdfa; border-radius: 10px; border: 1px solid var(--line); }
+    #map circle { cursor: pointer; }
+    #map circle.dim { opacity: .12; }
+    #map circle.on { stroke: #302b29; stroke-width: 1.5px; }
+    #map line { stroke: #302b29; stroke-opacity: .5; stroke-width: 1px; pointer-events: none; }
+    #map text.lbl { font-size: 11px; paint-order: stroke; stroke: #fffdfa; stroke-width: 3px; pointer-events: none; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-top: 6px; }
+    .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-right: 4px; vertical-align: -1px; }
+    .tip { position: absolute; pointer-events: none; background: rgba(43,38,32,.92); color: #fff; padding: 6px 9px; border-radius: 8px; font-size: 12px; line-height: 1.5; z-index: 10; max-width: 280px; }
+    .tip[hidden] { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧭 レシピの埋め込み比べ(試作)</h1>
+    <p>全レシピを、ローカルで動く3つの埋め込みモデル(Qwen3-Embedding-8B・sarashina-embedding-v2-1b・Ruri v3-310m)でベクトルにし、
+      埋め込む文章を4通り(名前だけ / 名前+材料 / 名前+材料+作り方 / 名前+材料+作り方+タグ)変えて、どの組み合わせがいちばん「意味の近さ」をうまく表すかを比べるページです。
+      ベクトルの計算は事前に済ませてあり(temp_koba/embed/)、このページは結果を読むだけです。</p>
+  </header>
+
+  <section class="conclusion">
+    <h2>✅ 結論(2026-10-22 時点)</h2>
+    <p><b>Qwen3-Embedding-8B × 名前+材料+作り方+タグ</b> を、「近い料理」と「言葉で探す」の両方に使うのがよさそうです。</p>
+    <ul>
+      <li><b>近い料理:</b> どのモデルも大差はないが、人の目隠し評価(36回)で Qwen3 が 42%(ほかは 28% ずつ)、LLM(qwen3:30b)の目隠し評価でも Qwen3 が少し上。</li>
+      <li><b>言葉で探す:</b> LLM の目隠し評価で Qwen3 が 45%(ほかは 5〜15%)、自動の指標でもいちばん上。</li>
+      <li><b>埋め込む文章:</b> 名前だけ・名前+材料はどの評価でも弱い。作り方を入れると良くなり、Qwen3 はタグ(お弁当のおかず・おつまみ など)を足すとさらに少し良くなる。</li>
+      <li>LLM の目隠し評価は、並び順をずらして2回判定し、2回とも同じものを選んだときだけ数えた(LLM は2番目・3番目を選びがちなため)。結果: temp_koba/embed/out/judge_summary.csv</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📊 自動の指標</h2>
+    <p class="hint">各料理の「近い10品」のうち、条件に合う料理の割合です(高いほど良い)。分類・系統・料理の種類は料理名などから決めた値なので完全な正解ではなく、目安です。
+      特に「同じ種類」は料理名のキーワードで決めているので、料理名だけを埋め込んだものが有利になります。「+タグ」は文章に分類・系統・タグ(「ハンバーグ」など料理の種類も含む)が入っているので、「分類が同じ」「系統が同じ」「同じ種類の料理」は実力より高く出ます。「言葉で探す(目安)」は、正解をタグを使わずに決められる7つの質問(麺・温まる料理・キャベツ・卵・オーブンのお菓子など)だけで測っています。最後は下の目隠し評価で、人の目で決めるのがおすすめです。</p>
+    <div id="metrics"></div>
+  </section>
+
+  <section>
+    <h2>🔎 近い料理を比べる</h2>
+    <p class="hint">基準の料理を選ぶと、その料理に近い10品を3つ並べて表示します。緑のラベルは基準の料理と分類・系統が同じものです。</p>
+    <div class="row">
+      <label>比べるもの <select id="axis">
+        <option value="model">モデルを比べる(文章は固定)</option>
+        <option value="text">文章を比べる(モデルは固定)</option>
+      </select></label>
+      <label id="fix-wrap">固定する <select id="fix"></select></label>
+    </div>
+    <div class="row">
+      <label>基準の料理 <input type="text" id="seed-input" list="recipe-list" placeholder="料理名を入力(例: 基本の肉じゃが)"></label>
+      <button type="button" id="seed-random">ランダムに選ぶ</button>
+      <datalist id="recipe-list"></datalist>
+    </div>
+    <div id="seed-info" class="seed"></div>
+    <div id="compare" class="cols"></div>
+  </section>
+
+  <section>
+    <h2>🙈 目隠し評価</h2>
+    <p class="hint">ランダムな料理(または質問)について、3〜4つの結果をどれがどれか分からないように A・B・C(・D)で並べます。いちばん納得できるものを選んでください。
+      20〜30回くらい選ぶと、どれが良いかの傾向が見えます。結果はこのブラウザに保存され、「結果を見る」で集計できます。</p>
+    <div class="row">
+      <label>評価するもの <select id="b-kind">
+        <option value="neighbors">近い料理(料理を選んで近い10品)</option>
+        <option value="query">言葉で探す(質問の上位10品)</option>
+      </select></label>
+      <label>比べるもの <select id="b-axis">
+        <option value="model">モデル(文章は固定)</option>
+        <option value="text">文章(モデルは固定)</option>
+      </select></label>
+      <label>固定する <select id="b-fix"></select></label>
+      <button type="button" id="b-next" class="primary">次の料理</button>
+    </div>
+    <div id="b-seed" class="seed"></div>
+    <div id="b-cols" class="cols"></div>
+    <div class="vote" id="b-vote"></div>
+    <div class="row"><button type="button" id="b-show">結果を見る</button><button type="button" id="b-reset">結果を消す</button></div>
+    <div class="tally" id="b-tally"></div>
+  </section>
+
+  <section>
+    <h2>💬 言葉で探す(試し)</h2>
+    <p class="hint">食材名ではない言葉で探せるかを試します。質問は事前に決めた20個です(ベクトルの計算をこのページではしないため)。</p>
+    <div class="row">
+      <label>質問 <select id="query"></select></label>
+      <label>比べるもの <select id="q-axis">
+        <option value="model">モデルを比べる(文章は固定)</option>
+        <option value="text">文章を比べる(モデルは固定)</option>
+      </select></label>
+      <label>固定する <select id="q-fix"></select></label>
+    </div>
+    <div id="q-cols" class="cols"></div>
+  </section>
+
+  <section>
+    <h2>🗺 料理の地図</h2>
+    <p class="hint">ベクトルを UMAP で2次元にした地図です。近い料理ほど近くに置かれます。点にマウスを乗せると料理名、クリックするとその料理の「近い10品」を線で結びます(もう一度クリックで解除)。
+      色を「分類」にすると、分類のおかしい料理(お菓子の中に「主食」が混ざる、など)も見つけられます。</p>
+    <div class="row">
+      <label>組み合わせ <select id="m-cfg"></select></label>
+      <label>色 <select id="m-color"><option value="category">分類(主菜・副菜…)</option><option value="style">系統(和風・洋風…)</option></select></label>
+      <label>料理の種類を強調 <select id="m-family"><option value="">(なし)</option></select></label>
+    </div>
+    <div id="map-box"><svg id="map"></svg><div class="tip" id="tip" hidden></div></div>
+    <div class="legend" id="legend"></div>
+    <p class="hint" id="map-nb"></p>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="embedding-playground.js"></script>
+</body>
+</html>

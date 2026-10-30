@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今日のレシピ探索</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="search-layout.css">
+  <!-- capstone-search-layout-only-v2 -->
+  <style id="atlas-navigation-css">
+    .site-header .atlas-header-link { display:inline-flex;align-items:center;justify-content:center;
+      padding:7px 12px;border:1px solid currentColor;border-radius:999px;
+      color:inherit;font-size:13px;font-weight:700;text-decoration:none;white-space:nowrap; }
+    .site-header .atlas-header-link:hover { opacity:.8; }
+    .site-header .header-page-links { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+    @media(max-width:750px){.site-header .atlas-header-link{padding:6px 9px;font-size:12px}}
+  </style>
+</head>
+
+<body class="search-layout-only">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="今日のレシピ探索のトップへ">
+      <span class="brand-mark" aria-hidden="true">
+        <img class="brand-logo" src="images/recipe-explorer-logo.png" alt="">
+      </span>
+      <span class="search-title">
+        <h1>今日のレシピ探索</h1>
+        <p>今ある食材と条件から、今日の料理を探しましょう</p>
+      </span>
+    </a>
+    <form class="header-search" id="header-search">
+      <label class="sr-only" for="header-search-input">食材から検索</label>
+      <svg class="header-search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m16 16 4.2 4.2"/></svg>
+      <input id="header-search-input" type="search" placeholder="食材名で検索してみましょう" autocomplete="off">
+    </form>
+    <a class="favorites-link" href="favorites.html" aria-label="お気に入りの料理を見る">♡ お気に入り <span id="favorite-count">0</span></a>
+    <div class="header-page-links">
+      <a class="atlas-header-link" href="atlas-discovery.html">類似マップ</a>
+      <a class="home-link" href="index.html">トップへ戻る</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="controls" aria-label="食材と条件で絞り込む">
+      <details class="recipe-name-filter" open>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/></svg>料理から探す</span></summary>
+        <p class="field-note">料理名や料理に含まれる言葉で絞り込みます</p>
+        <input type="search" id="recipe-name-input" placeholder="例: 親子丼、カレー">
+      </details>
+      <details class="ingredient-filters" open>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h16l-6.2 7v5.2l-3.6 1.8v-7Z"/></svg>食材で絞り込む</span></summary>
+        <span class="label label-have">今ある食材 <span class="hint">「、」やスペース区切り</span></span>
+        <p class="field-note">冷蔵庫にある食材を入力しましょう</p>
+        <input type="text" id="ing-input" placeholder="例: 玉ねぎ、卵" value="玉ねぎ、卵">
+        <div class="warn" id="ing-warn"></div>
+
+        <span class="label label-exclude">入れたくない食材・調味料</span>
+        <p class="field-note">苦手な食材や避けたいものを入力</p>
+        <input type="text" id="ex-input" placeholder="例: えび、にんにく">
+        <div class="warn" id="ex-warn"></div>
+        <div class="checks"><label class="substitute-toggle" title="例: 鶏もも肉がなくても豚肉があれば作れる料理に数える"><input type="checkbox" id="use-substitutes" checked><span>代用できる食材も使う</span></label></div>
+
+        <span class="label label-palette">食材から選ぶ</span>
+        <div class="mode">
+          <label><input type="radio" name="pmode" value="have" checked> 使いたい</label>
+          <label><input type="radio" name="pmode" value="ex"> 入れたくない</label>
+        </div>
+        <div id="ingredient-selection-summary" class="ingredient-selection-summary" aria-label="選択中の食材" hidden>
+          <div id="selected-have-row" class="selected-ingredient-row selected-ingredient-row--have" hidden>
+            <span class="selected-ingredient-label">使いたい食材</span>
+            <div id="selected-have" class="selected-ingredient-chips"></div>
+          </div>
+          <div id="selected-exclude-row" class="selected-ingredient-row selected-ingredient-row--exclude" hidden>
+            <span class="selected-ingredient-label">使いたくない食材</span>
+            <div id="selected-exclude" class="selected-ingredient-chips"></div>
+          </div>
+        </div>
+        <div class="ingredient-palette" id="palette"></div>
+
+        <span class="label">今ある量 <span class="hint">入れると何人前作れるか計算します</span></span>
+        <div id="amounts"></div>
+      </details>
+
+      <details open>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3.5 2"/></svg>時間・お金・器具</span></summary>
+        <span class="label">調理時間: <span id="time-val"></span></span>
+        <input type="range" id="time" min="10" max="120" step="5" value="120">
+        <span class="label">1人前の価格: <span id="price-val"></span></span>
+        <input type="range" id="price" min="100" max="600" step="50" value="600">
+        <span class="label">使える調理器具</span>
+        <div id="tools"></div>
+      </details>
+
+      <details>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5h7l9 9-7 7-9-9Z"/><circle cx="8.5" cy="8.5" r="1.25"/></svg>料理のタイプ</span></summary>
+        <span class="label">区分 <span class="hint">未選択ならすべて</span></span>
+        <div class="chips" id="categories"></div>
+        <span class="label">料理の種類(何風か)</span>
+        <div class="chips" id="styles"></div>
+        <span class="label">味</span>
+        <div class="chips" id="tastes"></div>
+      </details>
+
+      <details>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19.5 4.5C12 5 7 8.5 7 15c0 2.5 1.4 4.5 3.4 4.5 6.1 0 8.2-7.3 9.1-15Z"/><path d="M4.5 20c3-4.3 6.6-7 11.5-9"/></svg>旬・栄養</span></summary>
+        <span class="label">旬の月 <select id="month"></select></span>
+        <div class="checks"><label><input type="checkbox" id="season-only"> 旬の食材を使う料理だけ</label></div>
+        <span class="label">カロリー(1人前): <span id="kcal-val"></span></span>
+        <input type="range" id="kcal" min="100" max="1000" step="50" value="1000">
+        <span class="label">たんぱく質(1人前): <span id="protein-val"></span></span>
+        <input type="range" id="protein" min="0" max="35" step="5" value="0">
+      </details>
+
+      <details>
+        <summary><span class="filter-summary"><svg class="filter-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="11" cy="17" r="1.5"/></svg>その他</span></summary>
+        <span class="label">レシピの基準人数</span>
+        <select id="servings-min" aria-label="レシピの基準人数"><option value="1">指定しない</option><option value="2">2人前以上</option><option value="3">3人前以上</option><option value="4">4人前以上</option></select>
+        <span class="label">足りない食材の数: <span id="missing-val"></span></span>
+        <input type="range" id="missing" min="0" max="6" step="1" value="6">
+        <span class="label">足りない食材の下限</span>
+        <select id="missing-min" aria-label="足りない食材の下限"><option value="0">指定しない</option><option value="1">1個以上</option><option value="2">2個以上</option><option value="3">3個以上</option></select>
+      </details>
+      <p class="note">価格・栄養は1人前の目安です。</p>
+    </section>
+
+    <div id="controls-resizer" role="separator" aria-orientation="vertical" aria-label="検索パネルの幅を変更" tabindex="0"></div>
+
+    <section id="result">
+      <div class="explorer-card">
+        <div class="result-heading">
+          <div class="result-heading-copy">
+            <img class="result-brand-logo" src="images/ingredient-search-frame.png" alt="">
+            <div>
+              <p class="eyebrow">RECIPE EXPLORER</p>
+              <h2>料理を探す</h2>
+              <p class="result-description">食材や条件に合う料理を、グラフ上で比べながら見つけられます。</p>
+            </div>
+          </div>
+          <p class="jump-link"><a href="#vector-search">類似度検索を見る</a></p>
+        </div>
+      <div id="summary">
+        <span id="summary-text">読み込み中…</span>
+        <label>並び順
+          <select id="sort">
+            <option value="match">食材が合う順</option>
+            <option value="time">早く作れる順</option>
+            <option value="price">安い順</option>
+            <option value="kcal">低カロリー順</option>
+            <option value="protein">高たんぱく順</option>
+            <option value="servings">作れる量が多い順</option>
+          </select>
+        </label>
+      </div>
+      <div class="discovery-view-switch" role="tablist" aria-label="料理の探し方を切り替える">
+        <button type="button" class="active" data-discovery-view="ready" role="tab" aria-selected="true">今すぐ作れる料理を見る</button>
+        <button type="button" data-discovery-view="scatter" role="tab" aria-selected="false">ほかの料理も見る（散布図）</button>
+        <button type="button" data-discovery-view="tree" role="tab" aria-selected="false">レシピを分類して見る</button>
+        <button type="button" data-discovery-view="network" role="tab" aria-selected="false">買い足し食材を見る</button>
+      </div>
+      <section id="ready-view" class="ready-view" aria-label="今すぐ作れる料理のランキング">
+        <div class="ready-view-heading">
+          <div><h3>今すぐ作れる料理ランキング</h3><p>不足食材が0個の料理だけを、調理時間が短い順に表示します。</p></div>
+          <span id="ready-count" class="ready-count" aria-live="polite"></span>
+        </div>
+        <div class="ready-view-grid">
+          <section class="ready-ranking-panel"><h4>最短時間ランキング</h4><p>料理名を押すと詳細、比較ボタンで右のグラフに追加します。</p><div id="ready-ranking"></div></section>
+          <section class="ready-compare-panel"><h4>選んだ料理を比べる <span>最大3品</span></h4><p>軸を切り替えて、選んだ料理の位置関係を比べられます。</p><div id="ready-comparison">
+            <div class="ready-compare-controls">
+              <label>横軸 <select id="ready-compare-x" aria-label="比較散布図の横軸"><option value="time">調理時間</option><option value="price">価格</option><option value="ingredients">材料数</option><option value="kcal">カロリー</option></select></label>
+              <label>縦軸 <select id="ready-compare-y" aria-label="比較散布図の縦軸"><option value="time">調理時間</option><option value="price" selected>価格</option><option value="ingredients">材料数</option><option value="kcal">カロリー</option></select></label>
+            </div>
+            <div class="ready-comparison-scatter-wrap"><svg id="ready-comparison-scatter" role="img" aria-label="選んだ料理を比較する散布図"></svg></div>
+          </div></section>
+        </div>
+      </section>
+      <section id="scatter-view" class="scatter-view" hidden aria-label="ほかの料理を探す散布図">
+        <div id="legend"></div>
+        <div class="chart-toolbar">
+        <h3><svg class="axis-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9h16l-1.5 10h-13Z"/><path d="M8 9V6h8v3"/><path d="M9 14h6"/></svg><span id="x-axis-title">足りない食材の数</span> ×
+          <select id="y-axis" aria-label="縦軸を選択">
+            <option value="time">調理時間</option>
+            <option value="price">値段</option>
+            <option value="kcal">カロリー</option>
+            <option value="spicy">辛さ</option>
+            <option value="sweet">甘さ</option>
+            <option value="sour">酸っぱさ</option>
+          </select>
+        </h3>
+        </div>
+        <div class="scatter-controls">
+          <label>点で出す数
+            <select id="scatter-top-n" aria-label="引いて見ているときに点で出す、並び順の上位の品数">
+              <option value="10">上位10品</option>
+              <option value="30" selected>上位30品</option>
+              <option value="50">上位50品</option>
+              <option value="100">上位100品</option>
+            </select>
+          </label>
+          <span class="scatter-zoom" role="group" aria-label="拡大と縮小">
+            <button type="button" id="scatter-zoom-in" aria-label="拡大">＋</button>
+            <button type="button" id="scatter-zoom-out" aria-label="縮小">−</button>
+            <button type="button" id="scatter-zoom-reset">元に戻す</button>
+          </span>
+        </div>
+        <p class="chart-hint">マスの色が濃いほど、条件に合う料理が多い。点は並び順の上位です。ホイール・ピンチ・＋で拡大すると(2倍以上)、表示範囲内の料理が系統色の半透明な点で出ます。倍率に合わせて点も大きくなります。押しながらドラッグすると動かせます。マスを押すとそこへ寄ります。点を押すとレシピの詳細が開きます。</p>
+        <p id="x-range-status" class="x-range-status" aria-live="polite" hidden></p>
+        <p id="selection-summary" hidden aria-live="polite"></p>
+        <div class="scatter-wrap">
+          <svg id="scatter"></svg>
+          <label class="x-range-control x-range-control--axis">表示上限
+            <select id="x-range" aria-label="横軸に表示する不足食材数の上限">
+              <option value="5" selected>0〜5個</option>
+              <option value="all">すべて</option>
+            </select>
+          </label>
+        </div>
+      </section>
+      <section id="tree-view" class="explore-view" hidden aria-label="料理の分類ツリー">
+        <div class="explore-view-heading">
+          <div><h3>分類ツリー</h3><p>条件に合う料理を順に分類します。丸い枝を押すと、その分類を開いたり閉じたりできます。黒枠の料理は買い足しなしで作れます。</p></div>
+          <div class="explore-view-controls">
+            <label>1段目
+              <select id="tree-level-1" aria-label="分類ツリーの1段目">
+                <option value="category">料理の種類</option>
+                <option value="style">ジャンル</option>
+                <option value="time">調理時間</option>
+                <option value="missing">不足食材数</option>
+              </select>
+            </label>
+            <label>2段目
+              <select id="tree-level-2" aria-label="分類ツリーの2段目">
+                <option value="style">ジャンル</option>
+                <option value="time">調理時間</option>
+                <option value="category">料理の種類</option>
+                <option value="missing">不足食材数</option>
+                <option value="none">なし</option>
+              </select>
+            </label>
+            <label>3段目
+              <select id="tree-level-3" aria-label="分類ツリーの3段目">
+                <option value="none" selected>なし</option>
+                <option value="time">調理時間</option>
+                <option value="missing">不足食材数</option>
+                <option value="style">ジャンル</option>
+                <option value="category">料理の種類</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div class="recipe-tree-wrap"><svg id="recipe-tree" role="img" aria-label="条件に合う料理の分類ツリー"></svg></div>
+        <p class="explore-view-note">各分類では、条件により近い料理から12品ずつ表示します。「さらに表示」を押すと続きが出ます。料理名を押すと詳細を開きます。</p>
+      </section>
+      <section id="network-view" class="explore-view" hidden aria-label="買い足し食材のつながり図">
+        <div class="explore-view-heading">
+          <div><h3>買い足し候補のつながり図</h3><p>左が今ある食材、中央が候補の料理、右が足りない食材です。右の丸が大きいほど、多くの料理に使われます。黒枠の料理は買い足しなしで作れます。</p></div>
+          <div class="explore-view-controls">
+            <label>候補数
+              <select id="network-limit" aria-label="つながり図に表示する候補料理の数"><option value="20">20品</option><option value="35" selected>35品</option><option value="50">50品</option></select>
+            </label>
+            <label>配置
+              <select id="network-layout" aria-label="つながり図の配置"><option value="columns" selected>列で見る</option><option value="force">つながりで見る</option></select>
+            </label>
+          </div>
+        </div>
+        <div class="ingredient-network-wrap"><svg id="ingredient-network" role="img" aria-label="今ある食材、候補料理、足りない食材のつながり図"></svg></div>
+        <aside id="ingredient-network-rank" class="ingredient-network-rank" aria-live="polite"></aside>
+      </section>
+      </div>
+      <div id="top-picks">
+        <div class="section-heading"><div><p class="eyebrow">PICK UP</p><h3>おすすめのレシピ</h3></div></div>
+        <div class="top-picks-grid"></div>
+      </div>
+      <h3 id="chart-heading">候補の料理 <span class="hint">クリックでレシピを表示</span></h3>
+      <div id="candidate-scroll" aria-label="候補の料理一覧">
+        <svg id="chart"></svg>
+      <!-- capstone-paged-results-v1 -->
+      <nav id="results-pagination" class="results-pagination" aria-label="レシピ一覧のページ切り替え" hidden>
+        <label>表示件数 <select id="results-page-size"><option value="8">8件</option><option value="16">16件</option><option value="24">24件</option></select></label>
+        <span id="results-page-info" aria-live="polite"></span>
+        <button id="results-prev" type="button">← 前へ</button>
+        <button id="results-next" type="button">次へ →</button>
+      </nav>
+      </div>
+      <section id="vector-search" class="vector-panel" aria-labelledby="vector-heading">
+        <div class="vector-title">
+          <h3 id="vector-heading">似た料理を探す — ベクトル類似検索</h3>
+          <p>レシピ同士の近さを7項目で比較し、計算の根拠も可視化します。</p>
+
+          <p>
+            <a href="atlas.html" class="atlas-navigation-link">
+              レシピ類似度を詳しく分析する ↗
+            </a>
+          </p>
+        </div>
+        <div class="vector-controls">
+          <label for="vector-seed">基準の料理
+            <select id="vector-seed" disabled>
+              <option>読み込み中…</option>
+            </select>
+          </label>
+          <button id="vector-reset" type="button">重みを初期値に戻す</button>
+        </div>
+        <details class="vector-weights">
+          <summary>比較する7項目の重みを調整する</summary>
+          <div id="vector-weight-controls"></div>
+          <p class="vector-hint">重みは自動で正規化します。0にするとその項目を比較から外します。</p>
+        </details>
+        <p class="vector-status" id="vector-status" aria-live="polite">類似検索を準備しています…</p>
+        <div class="vector-columns">
+          <div class="vector-rank-area">
+            <h4>近い料理 TOP 8</h4>
+            <div id="vector-results" class="vector-results"></div>
+          </div>
+          <div class="vector-chart-area">
+            <h4>類似度とその内訳</h4>
+            <svg id="vector-score-chart" viewBox="0 0 570 45"></svg>
+            <div id="vector-explain"></div>
+          </div>
+        </div>
+        <p class="vector-hint">※ 本機能は説明可能な特徴量ベースの類似検索です。文章AIの意味埋め込みではありません。
+          味・栄養・調理時間には推定値が含まれ、スコアは好みの一致確率を示しません。</p>
+      </section>
+    </section>
+  </main>
+
+  <aside id="detail">
+    <div id="detail-resizer" role="separator" aria-orientation="vertical" aria-label="詳細パネルの幅を変更" tabindex="0"></div>
+    <button class="close" title="閉じる">×</button>
+    <div id="detail-body"></div>
+  </aside>
+  <div id="tooltip" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="data-adapter.js"></script>
+  <script src="viz.js"></script>
+  <script src="resizer.js"></script>
+  <script src="ingredient-readings.js"></script>
+  <script src="app.js"></script>
+  <script src="vector-core.js"></script>
+  <script src="vector-search.js"></script>
+  <script src="recipe-navigation.js"></script>
+</body>
+
+</html>

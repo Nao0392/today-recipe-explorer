@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今日のレシピ探索</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="home.css">
+</head>
+<body>
+  <header class="home-header"><div class="page-shell header-inner">
+    <a class="site-name" href="index.html" aria-label="今日のレシピ探索のトップへ">今日のレシピ探索</a>
+    <nav aria-label="主要なページ"><a class="header-nav-link" href="#world">今日の料理を選ぶ</a><a class="header-nav-link" href="atlas-discovery.html">料理の近さを見る</a><a class="header-search-link" href="search.html">検索ページ</a></nav>
+  </div></header>
+  <main>
+    <section class="hero page-shell" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">冷蔵庫にあるもので、<br>今日の一皿を。</h1>
+        <p class="hero-description">今ある食材を入れると、作れる料理が近い順に並びます。時間や予算、苦手な食材での絞り込みもできます。</p>
+        <form class="ingredient-search" id="ingredient-search"><label class="sr-only" for="home-ingredient-input">今ある食材</label><input id="home-ingredient-input" type="text" placeholder="例: 玉ねぎ、卵" aria-label="今ある食材" autocomplete="off"><button type="submit">この食材で探す</button></form>
+        <div class="popular-area" aria-labelledby="popular-label"><p id="popular-label">よく使う食材</p><div class="popular-chips" id="popular-chips" aria-label="よく使う食材"></div></div>
+        <p class="recipe-total" id="recipe-total" aria-live="polite">料理データを読み込んでいます…</p>
+        <div class="guided-search-actions" aria-label="探し方を選ぶ">
+          <button type="button" class="guided-search-button guided-search-button--ready" data-guided-open="ready" aria-pressed="true"><span>今ある食材から</span><b>作れる料理を探す</b></button>
+          <button type="button" class="guided-search-button guided-search-button--buy" data-guided-open="buy" aria-pressed="false"><span>作れる料理から</span><b>必要な食材を探す</b></button>
+        </div>
+        <p class="load-error" id="load-error" role="alert" hidden>料理データを読み込めませんでした。Live Server などで開いてください。</p>
+      </div>
+      <div class="mosaic" id="mosaic" aria-label="おすすめの料理">
+        <div class="mosaic-skeleton" aria-hidden="true"></div><div class="mosaic-skeleton" aria-hidden="true"></div><div class="mosaic-skeleton mosaic-skeleton--lower" aria-hidden="true"></div><div class="mosaic-skeleton mosaic-skeleton--lower" aria-hidden="true"></div><div class="mosaic-skeleton" aria-hidden="true"></div><div class="mosaic-skeleton" aria-hidden="true"></div>
+      </div>
+    </section>
+    <section class="feature-section page-shell" aria-labelledby="today-title"><div class="section-heading"><h2 id="today-title">きょうの一皿</h2><p>迷ったときは、まずこの料理から。</p></div><article class="today-card" id="today-card" aria-live="polite"></article></section>
+    <section class="world-section page-shell" id="world" aria-labelledby="world-title"><div class="section-heading"><h2 id="world-title">今日の料理を選ぶ</h2><p>気になる料理の系統を選ぶと、その系統だけに絞って探せます。</p></div><div class="world-grid" id="world-grid"></div></section>
+    <section class="quick-section page-shell" id="quick-section" aria-labelledby="quick-title" hidden><div class="section-heading"><h2 id="quick-title"></h2><p>時間がない日にも、作りやすい料理を集めました。</p></div><div class="quick-grid" id="quick-grid"></div></section>
+    <section class="similarity-band page-shell" aria-labelledby="similarity-title"><div class="similarity-copy"><h2 id="similarity-title">料理どうしの近さを見る</h2><p>食材、味、栄養、調理時間などを比べて、料理どうしがどれだけ似ているかを一覧にしました。全体のつながりを、地図のように眺められます。</p><a class="similarity-link" href="atlas-discovery.html">類似マップを開く</a></div><figure class="similarity-figure" aria-hidden="true"><div class="similarity-grid" id="similarity-grid"></div><figcaption>表示はイメージです</figcaption></figure></section>
+  </main>
+  <footer class="home-footer"><div class="page-shell">レシピの写真と情報は、各出典サイトのものです。価格・栄養は1人前の目安です。</div></footer>
+  <dialog class="guided-search-dialog" id="guided-search-dialog" aria-labelledby="guided-search-title">
+    <div class="guided-dialog-heading"><div><p>条件を指定して探す</p><h2 id="guided-search-title">料理を探す</h2></div><button type="button" class="guided-dialog-close" id="guided-dialog-close" aria-label="条件パネルを閉じる">×</button></div>
+    <div class="guided-tabs" role="tablist" aria-label="探し方">
+      <button type="button" role="tab" id="guided-ready-tab" aria-selected="true" aria-controls="guided-ready-panel" data-guided-tab="ready">今ある食材で作る</button>
+      <button type="button" role="tab" id="guided-buy-tab" aria-selected="false" aria-controls="guided-buy-panel" data-guided-tab="buy">少し買い足して作る</button>
+    </div>
+    <section id="guided-ready-panel" class="guided-panel" role="tabpanel" aria-labelledby="guided-ready-tab">
+      <p>手元にある食材だけで作れる料理を探します。</p>
+      <form id="guided-ready-form">
+        <label>今ある食材<input id="guided-ready-have" type="text" placeholder="例: 玉ねぎ、卵" required></label>
+        <div class="guided-field-grid"><label>何人前作りたい？<select id="guided-ready-servings"><option value="1">1人前以上</option><option value="2" selected>2人前以上</option><option value="3">3人前以上</option><option value="4">4人前以上</option></select></label><label>調理時間<select id="guided-ready-time"><option value="120">指定しない</option><option value="30">30分以内</option><option value="60">60分以内</option><option value="90">90分以内</option></select></label></div>
+        <label>1人前の予算<select id="guided-ready-price"><option value="600">指定しない</option><option value="300">300円以内</option><option value="500">500円以内</option></select></label>
+        <div class="guided-field-grid"><label>料理のジャンル<select id="guided-ready-category"><option value="">指定しない</option><option value="主食">主食</option><option value="主菜">主菜</option><option value="副菜">副菜</option><option value="汁物">汁物</option><option value="軽食">軽食</option><option value="デザート">デザート</option></select></label><label>料理の種類<select id="guided-ready-style"><option value="">指定しない</option><option value="和風">和風</option><option value="洋風">洋風</option><option value="中華">中華</option><option value="韓国風">韓国風</option><option value="エスニック">エスニック</option><option value="インド風">インド風</option><option value="中東風">中東風</option><option value="メキシカン">メキシカン</option></select></label></div>
+        <label>使える器具<select id="guided-ready-tool"><option value="">指定しない（すべて使える）</option><option value="鍋">鍋</option><option value="フライパン">フライパン</option><option value="オーブン">オーブン</option><option value="電子レンジ">電子レンジ</option></select></label>
+        <p class="guided-note">検索後、左の「今ある量」に量を入れると、実際に何人前作れるかも計算できます。</p>
+        <button class="guided-submit" type="submit">この条件で料理を探す</button>
+      </form>
+    </section>
+    <section id="guided-buy-panel" class="guided-panel" role="tabpanel" aria-labelledby="guided-buy-tab" hidden>
+      <p>手元の食材を活かし、少し買い足して作れる料理を探します。</p>
+      <form id="guided-buy-form">
+        <label>今ある食材<input id="guided-buy-have" type="text" placeholder="例: 玉ねぎ、卵" required></label>
+        <label>料理名から探す（任意）<input id="guided-buy-name" type="search" placeholder="例: 親子丼、カレー"></label>
+        <div class="guided-field-grid"><label>足りない食材<select id="guided-buy-missing"><option value="1">1品まで</option><option value="2">2品まで</option><option value="3" selected>3品まで</option></select></label><label>調理時間<select id="guided-buy-time"><option value="120">指定しない</option><option value="30">30分以内</option><option value="60">60分以内</option><option value="90">90分以内</option></select></label></div>
+        <label>1人前の予算<select id="guided-buy-price"><option value="600">指定しない</option><option value="300">300円以内</option><option value="500">500円以内</option></select></label>
+        <div class="guided-field-grid"><label>料理のジャンル<select id="guided-buy-category"><option value="">指定しない</option><option value="主食">主食</option><option value="主菜">主菜</option><option value="副菜">副菜</option><option value="汁物">汁物</option><option value="軽食">軽食</option><option value="デザート">デザート</option></select></label><label>料理の種類<select id="guided-buy-style"><option value="">指定しない</option><option value="和風">和風</option><option value="洋風">洋風</option><option value="中華">中華</option><option value="韓国風">韓国風</option><option value="エスニック">エスニック</option><option value="インド風">インド風</option><option value="中東風">中東風</option><option value="メキシカン">メキシカン</option></select></label></div>
+        <label>使える器具<select id="guided-buy-tool"><option value="">指定しない（すべて使える）</option><option value="鍋">鍋</option><option value="フライパン">フライパン</option><option value="オーブン">オーブン</option><option value="電子レンジ">電子レンジ</option></select></label>
+        <button class="guided-submit" type="submit">この条件で料理を探す</button>
+      </form>
+    </section>
+  </dialog>
+  <script src="data-adapter.js"></script>
+  <script>
+    (() => {
+      "use strict";
+      const SEARCH_PAGE = "search.html";
+      const STYLE_ORDER = ["和風", "洋風", "中華", "韓国風", "エスニック", "インド風", "中東風", "メキシカン"];
+      const $ = id => document.getElementById(id);
+      const input = $("home-ingredient-input");
+      const chips = $("popular-chips");
+      let recipes = [];
+      function readRecipes(raw) { const list = Array.isArray(raw) ? raw : raw && Array.isArray(raw.recipes) ? raw.recipes : []; return list.filter(recipe => recipe && recipe.id != null && recipe.name); }
+      function dailyNumber() { let value = 0; for (const char of new Date().toISOString().slice(0, 10)) value = (value * 31 + char.charCodeAt(0)) >>> 0; return value; }
+      function shuffled(list, seed = dailyNumber()) { const copy = [...list]; let state = seed || 1; for (let i = copy.length - 1; i > 0; i--) { state = (state * 1664525 + 1013904223) >>> 0; const j = state % (i + 1); [copy[i], copy[j]] = [copy[j], copy[i]]; } return copy; }
+      function recipeHref(recipe) { return `${SEARCH_PAGE}?open=${encodeURIComponent(String(recipe.id))}`; }
+      function imageOrFallback(recipe, className) {
+        const media = document.createElement("div"); media.className = className;
+        const fallback = () => { media.classList.add("is-fallback"); media.replaceChildren(); const emoji = document.createElement("span"); emoji.className = "fallback-emoji"; emoji.setAttribute("aria-hidden", "true"); emoji.textContent = recipe.emoji || "🍽️"; media.appendChild(emoji); };
+        if (!recipe.image) { fallback(); return media; }
+        const image = document.createElement("img"); image.src = recipe.image; image.alt = recipe.name; image.loading = "lazy"; image.addEventListener("error", fallback, { once: true }); media.appendChild(image); return media;
+      }
+      function chooseImageRecipes(count) {
+        const candidates = recipes.filter(recipe => recipe.image).length ? recipes.filter(recipe => recipe.image) : recipes;
+        const byStyle = new Map(); for (const recipe of shuffled(candidates)) { const key = recipe.style || "その他"; if (!byStyle.has(key)) byStyle.set(key, recipe); }
+        return [...byStyle.values(), ...shuffled(candidates)].filter((recipe, index, all) => all.indexOf(recipe) === index).slice(0, count);
+      }
+      function appendRecipeName(container, recipe, className) { const name = document.createElement("span"); name.className = className; name.textContent = recipe.name; container.appendChild(name); }
+      function renderMosaic() {
+        const mosaic = $("mosaic"); mosaic.replaceChildren();
+        chooseImageRecipes(6).forEach((recipe, index) => {
+          const link = document.createElement("a"); link.className = `mosaic-tile mosaic-tile--${index + 1}`; link.href = recipeHref(recipe); link.setAttribute("aria-label", `${recipe.name}のレシピを見る`); link.style.setProperty("--tile-delay", `${index * 90}ms`); link.appendChild(imageOrFallback(recipe, "mosaic-media"));
+          const caption = document.createElement("span"); caption.className = "mosaic-caption"; appendRecipeName(caption, recipe, "mosaic-name"); const time = document.createElement("span"); time.className = "mosaic-time"; time.textContent = `${Number(recipe.time_min) || "–"}分`; caption.appendChild(time); link.appendChild(caption); mosaic.appendChild(link);
+        });
+        requestAnimationFrame(() => mosaic.classList.add("is-loaded"));
+      }
+      function renderToday(recipe) {
+        const card = $("today-card"); card.replaceChildren(); const mediaLink = document.createElement("a"); mediaLink.className = "today-media-link"; mediaLink.href = recipeHref(recipe); mediaLink.setAttribute("aria-label", `${recipe.name}のレシピを見る`); mediaLink.appendChild(imageOrFallback(recipe, "today-media")); card.appendChild(mediaLink);
+        const body = document.createElement("div"); body.className = "today-body"; const title = document.createElement("h3"); title.textContent = recipe.name; body.appendChild(title);
+        const meta = document.createElement("p"); meta.className = "today-meta"; const style = document.createElement("span"); style.textContent = recipe.style || "その他"; const category = document.createElement("span"); category.textContent = recipe.category || "料理"; meta.append(style, category); body.appendChild(meta);
+        const facts = document.createElement("dl"); facts.className = "today-facts"; [["調理時間", `${Number(recipe.time_min) || "–"}分`], ["1人前の価格", recipe.price != null ? `¥${Math.round(Number(recipe.price))}` : "–"], ["カロリー", recipe.nutrition && recipe.nutrition.kcal != null ? `${Math.round(Number(recipe.nutrition.kcal))}kcal` : "–"]].forEach(([label, value]) => { const group = document.createElement("div"); const term = document.createElement("dt"); term.textContent = label; const detail = document.createElement("dd"); detail.textContent = value; group.append(term, detail); facts.appendChild(group); }); body.appendChild(facts);
+        const tags = document.createElement("div"); tags.className = "ingredient-tags"; const names = Array.isArray(recipe.ingredients) ? recipe.ingredients.map(item => item && item.name).filter(Boolean) : []; names.slice(0, 8).forEach(name => { const tag = document.createElement("span"); tag.textContent = name; tags.appendChild(tag); }); if (names.length > 8) { const tag = document.createElement("span"); tag.textContent = `ほか${names.length - 8}品`; tags.appendChild(tag); } body.appendChild(tags);
+        const actions = document.createElement("div"); actions.className = "today-actions"; const view = document.createElement("a"); view.className = "today-view"; view.href = recipeHref(recipe); view.textContent = "このレシピを見る"; const other = document.createElement("button"); other.type = "button"; other.className = "today-other"; other.textContent = "別の一皿にする"; other.addEventListener("click", () => { renderToday(shuffled(recipes, Date.now()).find(item => item.id !== recipe.id) || recipe); }); actions.append(view, other); body.appendChild(actions); card.appendChild(body);
+      }
+      function renderWorld() {
+        const grid = $("world-grid"); grid.replaceChildren();
+        STYLE_ORDER.filter(style => recipes.some(recipe => recipe.style === style)).forEach((style, index) => { const group = recipes.filter(recipe => recipe.style === style); const representative = shuffled(group, dailyNumber() + index)[0]; const link = document.createElement("a"); link.className = "world-tile"; link.href = `${SEARCH_PAGE}?style=${encodeURIComponent(style)}`; link.setAttribute("aria-label", `${style}の料理 ${group.length}品を見る`); link.appendChild(imageOrFallback(representative, "world-media")); const caption = document.createElement("span"); caption.className = "world-caption"; const name = document.createElement("strong"); name.textContent = style; const count = document.createElement("small"); count.textContent = `${group.length}品`; caption.append(name, count); link.appendChild(caption); grid.appendChild(link); });
+      }
+      function renderQuick() {
+        const limit = [15, 20, 30].find(value => recipes.filter(recipe => Number(recipe.time_min) <= value).length >= 4); if (!limit) return; $("quick-title").textContent = `${limit}分あればできる`; const grid = $("quick-grid"); grid.replaceChildren(); recipes.filter(recipe => Number(recipe.time_min) <= limit).sort((a, b) => Number(a.time_min) - Number(b.time_min)).slice(0, 4).forEach(recipe => { const link = document.createElement("a"); link.className = "quick-card"; link.href = recipeHref(recipe); link.appendChild(imageOrFallback(recipe, "quick-media")); const name = document.createElement("strong"); name.textContent = recipe.name; const info = document.createElement("span"); info.textContent = `${Number(recipe.time_min) || "–"}分　${recipe.price != null ? `¥${Math.round(Number(recipe.price))}` : "¥–"}`; link.append(name, info); grid.appendChild(link); }); $("quick-section").hidden = false;
+      }
+      function currentIngredients() { return input.value.split(/[、,，]/).map(value => value.trim()).filter(Boolean); }
+      function updateChips() { const selected = new Set(currentIngredients()); chips.querySelectorAll("button").forEach(button => { const active = selected.has(button.value); button.classList.toggle("is-selected", active); button.setAttribute("aria-pressed", String(active)); }); }
+      function renderPopular(data) {
+        const entries = data && data.ingredients && !Array.isArray(data.ingredients) ? Object.entries(data.ingredients) : [];
+        const ranked = entries.length ? entries.map(([name, detail]) => [name, Number(detail && detail.count) || 0]) : (() => { const counts = new Map(); recipes.forEach(recipe => (recipe.ingredients || []).forEach(item => { if (item && item.name) counts.set(item.name, (counts.get(item.name) || 0) + 1); })); return [...counts]; })();
+        const names = ranked.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja")).slice(0, 10).map(([name]) => name); chips.replaceChildren(); names.forEach(name => { const button = document.createElement("button"); button.type = "button"; button.value = name; button.textContent = name; button.setAttribute("aria-pressed", "false"); button.addEventListener("click", () => { const values = currentIngredients(); const index = values.indexOf(name); if (index >= 0) values.splice(index, 1); else values.push(name); input.value = values.join("、"); updateChips(); input.focus(); }); chips.appendChild(button); }); updateChips();
+      }
+      function buildSimilarityGrid() { const grid = $("similarity-grid"); for (let row = 0; row < 8; row++) for (let column = 0; column < 8; column++) { const cell = document.createElement("span"); const distance = Math.abs(row - column); const sameGroup = Math.floor(row / 2) === Math.floor(column / 2); cell.style.setProperty("--cell-opacity", row === column ? .95 : sameGroup ? .66 : distance < 3 ? .37 : .16); grid.appendChild(cell); } }
+      const guidedDialog = $("guided-search-dialog");
+      function setGuidedMode(mode) {
+        const ready = mode === "ready";
+        $("guided-ready-panel").hidden = !ready; $("guided-buy-panel").hidden = ready;
+        $("guided-ready-tab").setAttribute("aria-selected", String(ready)); $("guided-buy-tab").setAttribute("aria-selected", String(!ready));
+        $("guided-ready-tab").classList.toggle("is-active", ready); $("guided-buy-tab").classList.toggle("is-active", !ready);
+      }
+      function showGuidedSearch(mode) {
+        const value = currentIngredients().join("、");
+        $("guided-ready-have").value = value; $("guided-buy-have").value = value;
+        setGuidedMode(mode);
+        if (typeof guidedDialog.showModal === "function") guidedDialog.showModal(); else guidedDialog.setAttribute("open", "");
+        (mode === "ready" ? $("guided-ready-have") : $("guided-buy-have")).focus();
+      }
+      function goToSearch(values) { window.location.href = `${SEARCH_PAGE}?${new URLSearchParams(values).toString()}`; }
+      function setGuidedActionMode(mode) {
+        document.querySelectorAll("[data-guided-open]").forEach(button => {
+          button.setAttribute("aria-pressed", String(button.dataset.guidedOpen === mode));
+        });
+      }
+      document.querySelectorAll("[data-guided-open]").forEach(button => button.addEventListener("click", () => {
+        setGuidedActionMode(button.dataset.guidedOpen);
+        showGuidedSearch(button.dataset.guidedOpen);
+      }));
+      document.querySelectorAll("[data-guided-tab]").forEach(button => button.addEventListener("click", () => setGuidedMode(button.dataset.guidedTab)));
+      $("guided-dialog-close").addEventListener("click", () => guidedDialog.close());
+      function addGuidedFilters(values, mode) {
+        const category = $(`guided-${mode}-category`).value;
+        const style = $(`guided-${mode}-style`).value;
+        const tool = $(`guided-${mode}-tool`).value;
+        if (category) values.category = category;
+        if (style) values.style = style;
+        if (tool) values.tool = tool;
+        return values;
+      }
+      $("guided-ready-form").addEventListener("submit", event => { event.preventDefault(); goToSearch(addGuidedFilters({ have: $("guided-ready-have").value.trim(), maxMissing: "0", minMissing: "0", minServings: $("guided-ready-servings").value, time: $("guided-ready-time").value, price: $("guided-ready-price").value }, "ready")); });
+      $("guided-buy-form").addEventListener("submit", event => { event.preventDefault(); const values = addGuidedFilters({ have: $("guided-buy-have").value.trim(), minMissing: "1", maxMissing: $("guided-buy-missing").value, time: $("guided-buy-time").value, price: $("guided-buy-price").value, view: "scatter" }, "buy"); const name = $("guided-buy-name").value.trim(); if (name) values.name = name; goToSearch(values); });
+      $("ingredient-search").addEventListener("submit", event => { event.preventDefault(); const value = currentIngredients().join("、"); window.location.href = value ? `${SEARCH_PAGE}?have=${encodeURIComponent(value)}` : SEARCH_PAGE; });
+      input.addEventListener("input", updateChips); buildSimilarityGrid();
+      RecipeData.load().then(data => { recipes = readRecipes(data); if (!recipes.length) throw new Error("No recipes"); $("recipe-total").textContent = `いま ${recipes.length.toLocaleString("ja-JP")} 品のレシピから探せます。`; renderPopular(data); renderMosaic(); renderToday(chooseImageRecipes(1)[0]); renderWorld(); renderQuick(); }).catch(() => { $("recipe-total").textContent = "料理データを読み込めません。"; $("load-error").hidden = false; });
+    })();
+  </script>
+</body>
+</html>

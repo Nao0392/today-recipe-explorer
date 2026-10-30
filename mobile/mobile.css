@@ -1,0 +1,376 @@
+/* スマホ専用画面。PC版のスタイルは変更せず、この画面でだけ上書きする。 */
+:root {
+  --mobile-header-h: 112px;
+}
+
+html { background: var(--cream); }
+
+body.mobile-search {
+  min-width: 320px;
+  overflow-x: hidden;
+  background: var(--cream);
+}
+
+.mobile-loading,
+.mobile-load-error-message {
+  display: grid;
+  min-height: 100dvh;
+  place-content: center;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mobile-load-error-message h1 { margin: 0 0 8px; color: var(--ink); font-size: 20px; }
+.mobile-load-error-message p { margin: 0; }
+
+body.mobile-search .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: calc(9px + env(safe-area-inset-top)) 16px 10px !important;
+}
+
+body.mobile-search .brand { gap: 8px; }
+body.mobile-search .brand-mark { flex: 0 0 42px; }
+body.mobile-search .brand-logo { width: 42px; height: 42px; }
+body.mobile-search .site-header .search-title h1 { font-size: 18px; }
+body.mobile-search .site-header .search-title p { display: none; }
+
+body.mobile-search .favorites-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+  font-size: 12px;
+}
+
+body.mobile-search .header-search {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  height: 42px;
+}
+
+body.mobile-search .header-page-links { display: none; }
+
+.mobile-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 640px);
+  margin: 12px auto 4px;
+  padding: 0 16px;
+}
+
+.mobile-filter-bar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mobile-filter-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--orange);
+  border-radius: 12px;
+  color: #fff;
+  background: var(--orange);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mobile-filter-trigger span { margin-right: 5px; font-size: 20px; line-height: 1; }
+
+body.mobile-search main {
+  display: block;
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 10px 16px calc(28px + env(safe-area-inset-bottom));
+}
+
+body.mobile-search #controls-resizer { display: none; }
+body.mobile-search #result { width: 100%; min-width: 0; margin: 0; }
+
+/* 条件は画面下から開く。閉じている間はキーボード操作の対象からも外す。 */
+body.mobile-search #controls {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  width: 100%;
+  max-width: none;
+  max-height: min(82dvh, 760px);
+  margin: 0;
+  padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+  overflow: auto;
+  border: 0;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -12px 32px rgba(48, 43, 41, .18);
+  transform: translateY(105%);
+  transition: transform .22s ease;
+}
+
+body.mobile-search.mobile-filters-open #controls { transform: translateY(0); }
+body.mobile-search.mobile-filters-open { overflow: hidden; }
+
+.mobile-filter-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -16px 12px;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, .97);
+}
+
+.mobile-filter-heading p {
+  margin: 0 0 1px;
+  color: var(--orange-dark);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.mobile-filter-heading h2 { margin: 0; color: var(--ink); font-size: 18px; }
+
+.mobile-filter-close {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mobile-filter-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(20, 23, 21, .34);
+}
+
+body.mobile-search.mobile-filters-open .mobile-filter-backdrop { display: block; }
+
+body.mobile-search #controls > details { padding: 12px 0; }
+body.mobile-search #controls input,
+body.mobile-search #controls select,
+body.mobile-search #controls button { min-height: 44px; }
+body.mobile-search #controls .chip { min-height: 38px; }
+
+body.mobile-search .result-heading,
+body.mobile-search .chart-toolbar,
+body.mobile-search .section-heading,
+body.mobile-search .ready-view-heading {
+  align-items: flex-start;
+}
+
+body.mobile-search .result-heading-copy { gap: 12px; }
+body.mobile-search .result-brand-logo { width: 56px; height: 56px; border-radius: 13px; transform: none; }
+body.mobile-search .result-heading h2 { font-size: 23px; }
+body.mobile-search .chart-toolbar { flex-wrap: wrap; gap: 10px; }
+body.mobile-search .chart-toolbar h3 { width: 100%; }
+body.mobile-search .chart-toolbar select { min-height: 42px; }
+
+body.mobile-search #scatter,
+body.mobile-search #chart { min-width: 0; }
+body.mobile-search .explorer-card { padding: 14px; border-radius: 14px; }
+body.mobile-search .scatter-toolbar,
+body.mobile-search .scatter-actions,
+body.mobile-search .ready-view-switch { flex-wrap: wrap; }
+
+body.mobile-search .top-picks-grid,
+body.mobile-search .favorites-grid,
+body.mobile-search .ready-ranking-list,
+body.mobile-search .vector-columns { grid-template-columns: 1fr; }
+body.mobile-search #candidate-scroll { max-height: none; overflow: visible; }
+body.mobile-search .recipe-tree-wrap,
+body.mobile-search .ingredient-network-wrap { overflow-x: auto; }
+body.mobile-search .vector-controls { align-items: stretch; }
+body.mobile-search .vector-controls > * { width: 100%; }
+
+/* 詳細は右側パネルではなく、スマホで届きやすい下部シートにする。 */
+body.mobile-search #detail {
+  top: auto;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 70;
+  width: 100% !important;
+  height: min(88dvh, 780px);
+  max-width: none;
+  padding: 18px 16px calc(22px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  transform: translateY(105%);
+  transition: transform .22s ease;
+}
+
+body.mobile-search #detail.open { transform: translateY(0); }
+body.mobile-search #detail-resizer { display: none; }
+body.mobile-search #detail .close {
+  position: sticky;
+  top: 0;
+  float: right;
+  width: 44px;
+  height: 44px;
+  margin: -6px 0 6px 8px;
+}
+body.mobile-search #detail .detail-thumb .thumb { height: 210px !important; }
+body.mobile-search #detail .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+body.mobile-search :focus-visible {
+  outline: 3px solid var(--orange-dark);
+  outline-offset: 3px;
+}
+
+.pwa-notice {
+  position: fixed;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 12px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(48, 43, 41, .18);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pwa-notice[hidden] { display: none; }
+.pwa-notice button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 7px 11px;
+  border: 1px solid var(--orange);
+  border-radius: 9px;
+  color: #fff;
+  background: var(--orange);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.mobile-search *, body.mobile-search *::before, body.mobile-search *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
+
+/* ---------- トップページ ---------- */
+body.mobile-home .home-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(244, 246, 241, .96);
+}
+
+body.mobile-home .header-inner { min-height: 60px; }
+body.mobile-home .header-inner nav { gap: 0; }
+body.mobile-home .header-nav-link { display: none; }
+body.mobile-home .hero { gap: 34px; padding-top: 34px; padding-bottom: 40px; }
+body.mobile-home .hero h1 { font-size: clamp(38px, 12vw, 56px); }
+body.mobile-home .mosaic { min-height: 300px; }
+body.mobile-home .feature-section,
+body.mobile-home .world-section,
+body.mobile-home .quick-section { padding-block: 35px; }
+body.mobile-home .today-media-link { min-height: 250px; }
+body.mobile-home .today-body { padding: 26px 22px; }
+body.mobile-home .today-actions a,
+body.mobile-home .today-actions button { min-height: 44px; }
+body.mobile-home .guided-search-dialog { width: min(100% - 20px, 560px); max-height: calc(100dvh - 20px); }
+
+/* ---------- お気に入り ---------- */
+body.mobile-favorites .favorites-page-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  padding: calc(9px + env(safe-area-inset-top)) 14px 10px !important;
+  background: rgba(255, 255, 255, .97);
+}
+
+body.mobile-favorites .favorites-page-header .brand-mark { flex-basis: 42px; }
+body.mobile-favorites .favorites-page-header .favorites-brand-logo { width: 42px; height: 42px; }
+body.mobile-favorites .favorites-page-nav { width: 100%; gap: 6px; }
+body.mobile-favorites .favorites-page-nav > a { flex: 1; min-height: 40px; padding: 8px 5px; text-align: center; font-size: 11px; }
+body.mobile-favorites main.favorites-page-main { padding: 16px 12px calc(32px + env(safe-area-inset-bottom)); }
+body.mobile-favorites .favorites-page-hero,
+body.mobile-favorites .favorites-explorer,
+body.mobile-favorites .favorite-cards-section { padding: 17px; }
+body.mobile-favorites .favorites-scatter-wrap { overflow-x: auto; }
+body.mobile-favorites #favorite-scatter { min-width: 520px; }
+body.mobile-favorites .favorite-page-heart { min-width: 44px; min-height: 44px; }
+
+/* ---------- 類似度マップ ---------- */
+body.mobile-map .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: calc(9px + env(safe-area-inset-top)) 13px 9px;
+}
+
+body.mobile-map .atlas-brand-icon { width: 42px; height: 42px; flex-basis: 42px; }
+body.mobile-map .atlas-brand-copy h1 { font-size: 18px; }
+body.mobile-map .atlas-brand-description { display: none; }
+body.mobile-map .global-nav {
+  order: 3;
+  flex: 1 1 100%;
+  justify-content: flex-start;
+  overflow-x: auto;
+  gap: 6px;
+  padding-bottom: 1px;
+}
+
+body.mobile-map .global-nav a { flex: 0 0 auto; min-height: 38px; padding: 8px 10px; font-size: 11px; }
+body.mobile-map .back-link { min-height: 38px; padding: 8px 10px; font-size: 10px; }
+body.mobile-map .page-shell { padding: 14px 12px calc(30px + env(safe-area-inset-bottom)); }
+body.mobile-map .toolbar { gap: 8px; }
+body.mobile-map .recipe-search { width: 100%; }
+body.mobile-map .recipe-search input { min-width: 0; width: 100%; }
+body.mobile-map .atlas-layout { display: flex; flex-direction: column; gap: 12px; }
+body.mobile-map .recipe-pane,
+body.mobile-map .graph-pane,
+body.mobile-map .process-pane { width: 100%; }
+body.mobile-map .graph-pane { min-height: 0; }
+body.mobile-map .graph-scroll { min-height: 330px; overflow: auto; }
+body.mobile-map .graph-scroll svg { width: 700px; min-width: 700px; }
+body.mobile-map .graph-top { gap: 8px; }
+body.mobile-map .graph-actions { display: flex; gap: 6px; }
+body.mobile-map .graph-actions button { min-height: 40px; }
+body.mobile-map .rank-strip { grid-auto-columns: minmax(180px, 78%); }
+body.mobile-map .process-body { grid-template-columns: 1fr; }
+body.mobile-map .process-step { grid-template-columns: 58px 1fr; }

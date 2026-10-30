@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今すぐ作れる料理の表示比較 | 世界のレシピ探索</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root { --ink:#302b29; --muted:#777; --line:#eae7e3; --paper:#fff; --bg:#faf9f6; --orange:#f97316; --orange-soft:#fff0e3; --green:#4d9b67; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--bg); font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif; }
+    main { width:min(1200px, calc(100% - 32px)); margin:0 auto; padding:32px 0 64px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { margin-bottom:8px; font-size:clamp(24px,4vw,34px); }
+    .lead { max-width:800px; margin-bottom:22px; color:var(--muted); font-size:14px; line-height:1.75; }
+    .controls,.variant { border:1px solid var(--line); border-radius:16px; background:var(--paper); }
+    .controls { display:flex; align-items:end; flex-wrap:wrap; gap:12px; padding:16px; }
+    .controls label { display:grid; gap:6px; color:var(--ink); font-size:13px; font-weight:700; }
+    input,select { border:1px solid var(--line); border-radius:9px; color:var(--ink); background:#fff; font:inherit; }
+    input { width:min(620px, 84vw); padding:10px 11px; }
+    select { padding:10px 11px; }
+    input:focus,select:focus,button:focus-visible { outline:3px solid #ffe0c4; border-color:var(--orange); }
+    button { border:0; border-radius:9px; padding:10px 15px; color:#fff; background:var(--orange); font:inherit; font-weight:700; cursor:pointer; }
+    button:hover { background:#df6510; }
+    .count { flex:1 1 180px; margin:0 0 10px; color:var(--muted); font-size:13px; }
+    .count strong { color:var(--orange); font-size:20px; }
+    .variants { display:grid; gap:22px; margin-top:24px; }
+    .variant { overflow:hidden; }
+    .variant-head { display:flex; align-items:start; justify-content:space-between; gap:16px; padding:18px 20px 12px; border-bottom:1px solid var(--line); }
+    .variant-head h2 { margin:0; font-size:20px; }
+    .variant-head p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.6; }
+    .badge { flex:0 0 auto; padding:5px 9px; border-radius:999px; color:#a33b0c; background:var(--orange-soft); font-size:12px; font-weight:700; }
+    .a-layout { display:grid; grid-template-columns:minmax(260px,.9fr) minmax(380px,1.5fr); min-height:390px; }
+    .ranking { padding:15px; border-right:1px solid var(--line); }
+    .ranking h3,.comparison h3 { margin-bottom:4px; font-size:15px; }
+    .sub { margin:0 0 10px; color:var(--muted); font-size:12px; }
+    .ranking-list { display:grid; gap:5px; max-height:348px; overflow:auto; padding-right:3px; }
+    .rank-item { display:grid; grid-template-columns:26px minmax(0,1fr) auto; align-items:center; gap:7px; width:100%; padding:8px; border:1px solid transparent; border-radius:10px; color:var(--ink); background:#fff; text-align:left; font-weight:400; }
+    .rank-item:hover { border-color:#ffd2b0; background:#fffaf6; }
+    .rank-item.selected { border-color:var(--orange); background:var(--orange-soft); }
+    .rank-num { display:grid; width:23px; height:23px; place-items:center; border-radius:50%; color:#fff; background:var(--green); font-size:11px; font-weight:700; }
+    .rank-name { overflow:hidden; font-size:13px; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+    .rank-meta { color:var(--muted); font-size:11px; }
+    .rank-time { color:var(--orange); font-size:13px; font-weight:700; white-space:nowrap; }
+    .comparison { padding:15px; }
+    .compare-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .compare-card { min-height:230px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fffdfa; }
+    .compare-card h4 { margin:0 0 5px; font-size:14px; line-height:1.4; }
+    .compare-card p { margin:0 0 10px; color:var(--muted); font-size:11px; }
+    .metric { margin:8px 0; }
+    .metric-line { display:flex; justify-content:space-between; gap:8px; font-size:11px; }
+    .metric-line b { color:var(--ink); font-size:13px; }
+    .bar { height:7px; margin-top:4px; overflow:hidden; border-radius:999px; background:#f1ede9; }
+    .bar i { display:block; height:100%; border-radius:inherit; background:var(--orange); }
+    .compare-empty { display:grid; min-height:230px; place-items:center; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:13px; text-align:center; }
+    .chart-wrap { position:relative; padding:10px 16px 16px; overflow-x:auto; }
+    svg { display:block; width:100%; min-width:680px; }
+    .axis text,.axis-label { fill:#777; font-size:11px; }
+    .axis path,.axis line,.grid line { stroke:#eae7e3; }
+    .grid path { display:none; }
+    .dot,.lollipop { cursor:pointer; }
+    .dot circle { stroke-width:2px; }
+    .dot:hover circle,.dot.selected circle,.lollipop:hover circle,.lollipop.selected circle { stroke:#302b29; stroke-width:3px; filter:drop-shadow(0 1px 3px rgba(0,0,0,.2)); }
+    .dot:focus,.lollipop:focus { outline:none; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px 14px; padding:0 18px 12px; color:var(--muted); font-size:11px; }
+    .legend i { display:inline-block; width:9px; height:9px; margin-right:4px; border-radius:50%; vertical-align:0; }
+    #tip { position:fixed; z-index:5; max-width:260px; padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 7px 20px rgba(48,43,41,.14); font-size:12px; line-height:1.55; pointer-events:none; }
+    #tip[hidden] { display:none; }
+    .empty { margin:0; padding:40px 20px; color:var(--muted); text-align:center; }
+    .test-note { margin-top:24px; padding:16px 18px; border-left:4px solid var(--orange); border-radius:0 10px 10px 0; background:#fff; color:#514a46; font-size:13px; line-height:1.75; }
+    .test-note strong { color:var(--orange); }
+    @media (max-width:780px) { main { width:min(100% - 22px,1200px); padding-top:20px; } .a-layout { grid-template-columns:1fr; } .ranking { border-right:0; border-bottom:1px solid var(--line); } .compare-grid { grid-template-columns:1fr; } .compare-card { min-height:auto; } .variant-head { padding:15px; } .variant-head h2 { font-size:17px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>今すぐ作れる料理：表示形式の比較</h1>
+    <p class="lead">入力した食材だけで作れる料理（不足食材0個）を対象に、A「探す＋比べる」、B「時間と価格で探す」、C「調理時間順に読む」を比較します。点・行・カードをクリックすると、最大3品をAの比較欄へ追加できます。</p>
+
+    <form class="controls" id="controls">
+      <label>今ある食材（「、」または空白で区切る）
+        <input id="ingredients" value="きゅうり、ピーマン、なす、ほうれん草、納豆、ねぎ、白菜、ひき肉、ちくわ、セロリ、にんじん" autocomplete="off">
+      </label>
+      <label>料理区分
+        <select id="category"><option value="all">すべて</option><option value="主菜">主菜</option><option value="副菜">副菜</option><option value="主食">主食</option><option value="汁物">汁物</option><option value="デザート">デザート</option></select>
+      </label>
+      <button type="submit">比較を更新</button>
+      <p id="count" class="count" aria-live="polite"></p>
+    </form>
+
+    <section class="variants" aria-label="表示形式AからCの比較">
+      <article class="variant">
+        <div class="variant-head"><div><h2>A. ランキング＋選択料理の比較</h2><p>左で短時間の料理を見つけ、気になる料理を最大3品まで選び、右で数値を比べます。</p></div><span class="badge">探す＋比べる</span></div>
+        <div id="a-content"></div>
+      </article>
+
+      <article class="variant">
+        <div class="variant-head"><div><h2>B. 調理時間 × 価格の散布図</h2><p>左下ほど「早くて安い」料理です。色は料理ジャンル、円の大きさは使う材料数を表します。</p></div><span class="badge">探索向け</span></div>
+        <div class="chart-wrap"><svg id="chart-b" role="img" aria-label="調理時間と価格の散布図"></svg></div>
+        <div id="legend" class="legend"></div>
+      </article>
+
+      <article class="variant">
+        <div class="variant-head"><div><h2>C. 調理時間のロリポップランキング</h2><p>短時間順の上位20品を、線と点で正確に比較します。料理名を読むことを優先した案です。</p></div><span class="badge">読み取り向け</span></div>
+        <div class="chart-wrap"><svg id="chart-c" role="img" aria-label="調理時間順のロリポップランキング"></svg></div>
+      </article>
+    </section>
+
+    <p class="test-note"><strong>比較するときの観点：</strong>「20分以内で作れる料理を1つ見つける」「早くて安い料理を見つける」「3品の時間・価格・材料数を比べる」を各案で試し、発見までの時間、クリックミス、読み取りやすさを記録してください。</p>
+  </main>
+  <div id="tip" hidden></div>
+
+  <script>
+    const DATA_URL = "data/delish_teiban_photo.json";
+    const COLORS = ["#ef5b3c", "#e9a82a", "#48a56a", "#4e91df", "#8b69c7", "#ce5b8f"];
+    const tip = d3.select("#tip");
+    let recipes = [], ready = [], selectedIds = new Set();
+
+    const termSet = value => new Set(value.split(/[、,，\s]+/).map(v => v.normalize("NFKC").trim()).filter(Boolean));
+    const styles = () => [...new Set(ready.map(d => d.style || "その他"))];
+    const color = style => d3.scaleOrdinal(styles(), COLORS)(style || "その他");
+    const currency = value => `¥${Number(value || 0).toLocaleString("ja-JP")}`;
+    const maxOf = (values, accessor) => Math.max(1, d3.max(values, accessor) || 1);
+
+    function tooltip(event, d) {
+      tip.attr("hidden", null).html(`<b>${d.name}</b><br>調理 ${d.time_min}分・${currency(d.price)}・材料 ${d.ingredients.length}品<br>${d.style || "その他"}・${d.category || ""}`)
+        .style("left", `${Math.min(window.innerWidth - 270, event.clientX + 13)}px`)
+        .style("top", `${event.clientY + 13}px`);
+    }
+    const hideTip = () => tip.attr("hidden", true);
+
+    function toggle(id) {
+      if (selectedIds.has(id)) selectedIds.delete(id);
+      else {
+        if (selectedIds.size >= 3) selectedIds.delete(selectedIds.values().next().value);
+        selectedIds.add(id);
+      }
+      renderAll();
+    }
+
+    function prepare() {
+      const have = termSet(document.querySelector("#ingredients").value);
+      const category = document.querySelector("#category").value;
+      ready = recipes.map(recipe => {
+        const missing = recipe.ingredients.filter(ing => !have.has(ing.name));
+        return { ...recipe, missing };
+      }).filter(recipe => recipe.missing.length === 0 && (category === "all" || recipe.category === category))
+        .sort((a, b) => a.time_min - b.time_min || a.price - b.price || a.ingredients.length - b.ingredients.length);
+      selectedIds = new Set(ready.slice(0, Math.min(2, ready.length)).map(d => d.id));
+      document.querySelector("#count").innerHTML = ready.length ? `今すぐ作れる料理 <strong>${ready.length}</strong>件` : "今すぐ作れる料理は見つかりませんでした";
+      renderAll();
+    }
+
+    function renderAll() { renderA(); renderB(); renderC(); }
+
+    function renderA() {
+      const root = d3.select("#a-content").html("");
+      if (!ready.length) { root.append("p").attr("class", "empty").text("入力した食材だけで作れる料理がありません。食材を追加してみてください。"); return; }
+      const layout = root.append("div").attr("class", "a-layout");
+      const ranking = layout.append("section").attr("class", "ranking");
+      ranking.append("h3").text("最短時間ランキング");
+      ranking.append("p").attr("class", "sub").text("クリックで比較対象に追加・解除（最大3品）");
+      const list = ranking.append("div").attr("class", "ranking-list");
+      const buttons = list.selectAll("button").data(ready.slice(0, 12), d => d.id).join("button")
+        .attr("type", "button").attr("class", d => `rank-item${selectedIds.has(d.id) ? " selected" : ""}`)
+        .attr("aria-pressed", d => selectedIds.has(d.id)).on("click", (_, d) => toggle(d.id));
+      buttons.html((d, i) => `<span class="rank-num">${i + 1}</span><span><span class="rank-name">${d.name}</span><br><span class="rank-meta">${currency(d.price)}・材料${d.ingredients.length}品</span></span><span class="rank-time">${d.time_min}分</span>`);
+
+      const comparison = layout.append("section").attr("class", "comparison");
+      comparison.append("h3").text("選んだ料理を比べる");
+      comparison.append("p").attr("class", "sub").text("時間・価格・材料数を同じ目盛りで比較");
+      const picks = ready.filter(d => selectedIds.has(d.id));
+      const grid = comparison.append("div").attr("class", "compare-grid");
+      if (!picks.length) grid.append("div").attr("class", "compare-empty").text("左のランキング、または下のグラフから料理を選んでください。");
+      const maxTime = maxOf(picks, d => d.time_min), maxPrice = maxOf(picks, d => d.price), maxIngredients = maxOf(picks, d => d.ingredients.length);
+      const cards = grid.selectAll("article").data(picks, d => d.id).join("article").attr("class", "compare-card").on("click", (_, d) => toggle(d.id));
+      cards.html(d => `<h4>${d.name}</h4><p>${d.style || "その他"}・${d.category || ""}</p>${metric("調理時間", `${d.time_min}分`, d.time_min / maxTime)}${metric("価格", currency(d.price), d.price / maxPrice)}${metric("使う材料", `${d.ingredients.length}品`, d.ingredients.length / maxIngredients)}`);
+    }
+
+    function metric(label, value, ratio) { return `<div class="metric"><div class="metric-line"><span>${label}</span><b>${value}</b></div><div class="bar"><i style="width:${Math.max(5, ratio * 100)}%"></i></div></div>`; }
+
+    function renderB() {
+      const svg = d3.select("#chart-b"); svg.selectAll("*").remove();
+      d3.select("#legend").html("");
+      if (!ready.length) return;
+      const W = svg.node().getBoundingClientRect().width || 1000, H = 360, m = { t:22, r:22, b:48, l:58 };
+      svg.attr("viewBox", `0 0 ${W} ${H}`);
+      const x = d3.scaleLinear().domain([0, maxOf(ready, d => d.time_min) * 1.08]).nice().range([m.l, W - m.r]);
+      const y = d3.scaleLinear().domain([0, maxOf(ready, d => d.price) * 1.12]).nice().range([H - m.b, m.t]);
+      const r = d3.scaleSqrt().domain(d3.extent(ready, d => d.ingredients.length)).range([5, 14]);
+      svg.append("g").attr("class", "grid").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickSize(-(W - m.l - m.r)).tickFormat(""));
+      svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => `${d}分`));
+      svg.append("g").attr("class", "axis").attr("transform", `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d => currency(d)));
+      svg.append("text").attr("class", "axis-label").attr("x", W - m.r).attr("y", H - 8).attr("text-anchor", "end").text("調理時間（短い →）");
+      svg.append("text").attr("class", "axis-label").attr("x", m.l + 3).attr("y", 13).text("価格（安い →）");
+      const dots = svg.append("g").selectAll("g").data(ready, d => d.id).join("g").attr("class", d => `dot${selectedIds.has(d.id) ? " selected" : ""}`)
+        .attr("transform", d => `translate(${x(d.time_min)},${y(d.price)})`).attr("tabindex", 0).attr("role", "button").attr("aria-label", d => `${d.name}を比較に追加`)
+        .on("mouseenter", (e, d) => tooltip(e, d)).on("mousemove", (e, d) => tooltip(e, d)).on("mouseleave", hideTip).on("click", (_, d) => toggle(d.id))
+        .on("keydown", (e, d) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(d.id); } });
+      dots.append("circle").attr("r", d => r(d.ingredients.length)).attr("fill", d => color(d.style)).attr("fill-opacity", .42).attr("stroke", d => color(d.style));
+      const legend = d3.select("#legend").selectAll("span").data(styles()).join("span");
+      legend.html(s => `<i style="background:${color(s)}"></i>${s}`);
+    }
+
+    function renderC() {
+      const svg = d3.select("#chart-c"); svg.selectAll("*").remove();
+      if (!ready.length) return;
+      const data = ready.slice(0, 20), W = svg.node().getBoundingClientRect().width || 1000;
+      const rowH = 30, m = { t:22, r:34, b:38, l:205 }, H = m.t + m.b + rowH * data.length;
+      svg.attr("viewBox", `0 0 ${W} ${H}`);
+      const x = d3.scaleLinear().domain([0, maxOf(data, d => d.time_min) * 1.12]).nice().range([m.l, W - m.r]);
+      const y = d3.scaleBand().domain(data.map(d => d.id)).range([m.t, H - m.b]).padding(.35);
+      svg.append("g").attr("class", "grid").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(6).tickSize(-(H - m.t - m.b)).tickFormat(""));
+      svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(6).tickFormat(d => `${d}分`));
+      svg.append("text").attr("class", "axis-label").attr("x", W - m.r).attr("y", H - 8).attr("text-anchor", "end").text("調理時間");
+      const rows = svg.append("g").selectAll("g").data(data, d => d.id).join("g").attr("class", d => `lollipop${selectedIds.has(d.id) ? " selected" : ""}`)
+        .attr("transform", d => `translate(0,${y(d.id) + y.bandwidth() / 2})`).attr("tabindex", 0).attr("role", "button").attr("aria-label", d => `${d.name}を比較に追加`)
+        .on("mouseenter", (e, d) => tooltip(e, d)).on("mousemove", (e, d) => tooltip(e, d)).on("mouseleave", hideTip).on("click", (_, d) => toggle(d.id))
+        .on("keydown", (e, d) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(d.id); } });
+      rows.append("text").attr("x", m.l - 10).attr("text-anchor", "end").attr("dy", ".35em").attr("fill", "#302b29").attr("font-size", 12).text(d => d.name.length > 22 ? `${d.name.slice(0, 22)}…` : d.name);
+      rows.append("line").attr("x1", x(0)).attr("x2", d => x(d.time_min)).attr("stroke", d => color(d.style)).attr("stroke-width", 3).attr("stroke-opacity", .5);
+      rows.append("circle").attr("cx", d => x(d.time_min)).attr("r", 7).attr("fill", d => color(d.style));
+      rows.append("text").attr("x", d => x(d.time_min) + 11).attr("dy", ".35em").attr("fill", "#777").attr("font-size", 11).text(d => `${d.time_min}分`);
+    }
+
+    fetch(DATA_URL).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); }).then(data => {
+      recipes = data.recipes || [];
+      prepare();
+      document.querySelector("#controls").addEventListener("submit", event => { event.preventDefault(); prepare(); });
+      window.addEventListener("resize", renderAll);
+    }).catch(error => { document.querySelector("#count").textContent = `データを読み込めませんでした: ${error.message}`; });
+  </script>
+</body>
+</html>

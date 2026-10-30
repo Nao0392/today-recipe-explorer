@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>似た料理の地図(試作)</title>
+  <style>
+    :root {
+      --ink: #2b2620; --muted: #7a7168; --line: #e7ddd2; --bg: #faf7f2; --card: #fff;
+      --orange: #e5793a; --orange-soft: #fff0e4; --mint: #2e9d6f; --mint-soft: #e6f5ee;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 14px; }
+    header { padding: 18px 24px 6px; }
+    header h1 { margin: 0; font-size: 22px; color: #ad4315; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; max-width: 1000px; line-height: 1.6; }
+    section, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .controls { margin: 12px 24px; padding: 12px 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 5px 0; font-size: 13px; }
+    .row > label:first-child { min-width: 7em; font-weight: 700; }
+    input[type="text"], select, button { font: inherit; }
+    input[type="text"], select { padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    #have { flex: 1; min-width: 220px; max-width: 520px; }
+    #pick { min-width: 220px; max-width: 100%; }
+    button { padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+    button:hover { border-color: var(--orange); }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chips button.on { background: var(--mint); border-color: var(--mint); color: #fff; }
+    .main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 14px; margin: 0 24px 28px; align-items: start; }
+    @media (max-width: 1000px) { .main { grid-template-columns: 1fr; } }
+    .mapbox { padding: 10px 12px; }
+    .mapbox h2, .panel h2 { margin: 0 0 4px; font-size: 16px; color: #ad4315; }
+    .hint { margin: 0 0 6px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+    #map-wrap { position: relative; }
+    #map { display: block; width: 100%; background: #fffdfa; border-radius: 10px; border: 1px solid var(--line); touch-action: none; }
+    #map circle { cursor: pointer; }
+    #map circle.dim { opacity: .13; }
+    #map circle.sel { stroke: #302b29; stroke-width: 2.5px; }
+    #map circle.nb { stroke: #302b29; stroke-width: 1px; }
+    #map circle.alt { stroke: #1f6e4d; stroke-width: 2.5px; }
+    #map line { stroke: #302b29; stroke-opacity: .45; pointer-events: none; }
+    #map line.alt { stroke: #1f6e4d; stroke-opacity: .9; stroke-width: 1.8px; }
+    #map text { font-size: 12px; font-weight: 700; paint-order: stroke; stroke: #fffdfa; stroke-width: 3.5px; pointer-events: none; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-top: 6px; color: #4a423c; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+    .tip { position: absolute; pointer-events: none; background: rgba(43,38,32,.92); color: #fff; padding: 6px 9px; border-radius: 8px; font-size: 12px; line-height: 1.5; z-index: 10; max-width: 260px; }
+    .tip[hidden] { display: none; }
+    .side { display: grid; gap: 12px; }
+    .panel { padding: 12px 14px; }
+    .recipe-head h3 { margin: 0; font-size: 17px; }
+    .recipe-head .meta { font-size: 12px; color: var(--muted); margin: 3px 0; }
+    .badge { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; margin: 2px 4px 2px 0; }
+    .badge.ok { background: var(--mint-soft); color: #1f6e4d; font-weight: 700; }
+    .badge.miss { background: #fdecea; color: #b03a2e; }
+    .badge.have { background: #f3ece4; color: #6b625b; }
+    ol.list { margin: 4px 0 0; padding-left: 22px; }
+    ol.list li { margin: 4px 0; line-height: 1.45; }
+    ol.list a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted #b8aea3; cursor: pointer; }
+    ol.list a:hover { color: #c2410c; }
+    .sim { display: inline-block; width: 46px; height: 6px; background: #f1e8de; border-radius: 3px; margin: 0 6px 0 4px; vertical-align: middle; position: relative; overflow: hidden; }
+    .sim i { position: absolute; left: 0; top: 0; bottom: 0; background: #e5a77d; }
+    .small { font-size: 11px; color: var(--muted); }
+    .need { font-size: 11px; color: #b03a2e; }
+    .alt-box { border: 2px solid #b9e2cf; background: #f6fcf9; }
+    .alt-box h2 { color: #1f6e4d; }
+    .empty { font-size: 13px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧭 似た料理の地図(試作)</h1>
+    <p>レシピの埋め込みベクトル(Qwen3-Embedding-8B × 名前+材料+作り方+タグ。embedding-playground.html で比べていちばん良かった組み合わせ)を使った試作です。
+      料理を選ぶと <b>①似た料理</b> と、足りない食材があるときは <b>②似ていて、今ある食材で作れる料理</b> を右に出します。左の <b>④料理の地図</b> は、似た料理ほど近くに置き、今ある食材で作れるかどうかで色を付けています。</p>
+  </header>
+
+  <section class="controls">
+    <div class="row">
+      <label for="have">今ある食材</label>
+      <input id="have" type="text" value="玉ねぎ、卵、豚肉、キャベツ" placeholder="「、」やスペース区切り(例: 玉ねぎ、卵)">
+      <span class="small" id="unknown"></span>
+    </div>
+    <div class="row"><label>よく使う食材</label><div id="quick" class="chips"></div></div>
+    <div class="row">
+      <label for="pick">料理を選ぶ</label>
+      <input id="pick" type="text" list="recipe-list" placeholder="料理名を入力(地図の点をクリックしても選べます)">
+      <datalist id="recipe-list"></datalist>
+      <button type="button" id="random">ランダム</button>
+      <button type="button" id="random-ng">今の食材では作れない料理をランダムに</button>
+    </div>
+    <div class="row">
+      <label for="allow">「作れる」の範囲</label>
+      <select id="allow">
+        <option value="0">買い足しなし(今ある食材だけ)</option>
+        <option value="1" selected>買い足し1個まで</option>
+        <option value="2">買い足し2個まで</option>
+      </select>
+      <span class="small">調味料(しょうゆ・砂糖など)は家にあるものとして数えません</span>
+    </div>
+  </section>
+
+  <div class="main">
+    <section class="mapbox">
+      <h2>④ 料理の地図</h2>
+      <p class="hint">点1つが1品です。似た料理ほど近くに集まります(UMAPで2次元にしたもの)。色は今ある食材で作れるかどうか。点をクリックするとその料理を選び、似た料理10品を線で結びます(緑の太い線は「似ていて作れる料理」)。
+        ホイールで拡大、ドラッグで移動できます。</p>
+      <div class="row">
+        <label>色</label>
+        <select id="color"><option value="miss">買い足しの数</option><option value="category">分類(主菜・副菜…)</option><option value="style">系統(和風・洋風…)</option></select>
+        <label><input type="checkbox" id="only-ok"> 作れる料理だけを濃く</label>
+        <button type="button" id="zoom-reset">地図を元の大きさに</button>
+      </div>
+      <div id="map-wrap"><svg id="map"></svg><div class="tip" id="tip" hidden></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <div class="side">
+      <div class="panel" id="detail"><p class="empty">料理を選んでください。</p></div>
+      <div class="panel alt-box" id="alt"></div>
+      <div class="panel" id="similar"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="data-adapter.js"></script>
+  <script src="similar-playground.js"></script>
+</body>
+</html>

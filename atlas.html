@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fff8e9">
+  <title>レシピ類似度 | 今日のレシピ探索</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="atlas.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="atlas-brand" href="search.html" aria-label="今日のレシピ探索へ">
+      <img class="atlas-brand-icon" src="images/recipe-explorer-logo.png" alt="" aria-hidden="true">
+      <span class="atlas-brand-copy">
+        <strong class="site-title">今日のレシピ探索</strong>
+        <span class="atlas-brand-description">今ある食材と条件から、今日の料理を探しましょう</span>
+      </span>
+    </a>
+    <nav class="global-nav" aria-label="主要メニュー">
+      <a href="index.html">ホーム</a>
+      <a href="search.html">料理を探す</a>
+      <a href="atlas-discovery.html">類似マップ</a>
+      <a class="active" href="atlas.html" aria-current="page">レシピ類似度</a>
+      <a href="favorites.html">お気に入り</a>
+    </nav>
+    <a class="back-link" href="atlas-discovery.html">← 類似マップに戻る</a>
+  </header>
+  <main class="page-shell">
+    <div class="page-intro">
+      <div>
+        <p class="tiny-overline">7つの特徴を比較・可視化</p>
+        <h1>レシピ類似度</h1>
+        <p>食材・味・栄養などの近さを、ヒートマップや関係図で確かめられます。</p>
+      </div>
+      <nav class="section-links" aria-label="分析項目へ移動">
+        <a href="#heatmap-panel">ヒートマップ</a>
+        <a href="#network-panel">つながり図</a>
+        <a href="#explain-panel">7項目の比較</a>
+        <a href="#lab-toggle">重みと順位</a>
+      </nav>
+    </div>
+    <div id="atlas-error" role="alert" hidden></div>
+    <div class="toolbar">
+      <label for="atlas-seed">基準の料理 A<select id="atlas-seed" disabled></select></label>
+      <label for="atlas-target">比較する料理 B<select id="atlas-target" disabled></select></label>
+      <div class="meta"><strong id="atlas-count">読み込み中…</strong><small>レシピデータを読み込み後に件数を表示</small></div>
+    </div>
+    <section class="panel" id="heatmap-panel">
+      <div class="heading"><div><div class="eyebrow">01 / 類似度を色で比較</div>
+      <h2>料理の類似度ヒートマップ</h2><p>色が濃いほど似た料理です。セルを押すと2品を比較できます。</p></div>
+      <div class="matrix-controls"><label for="matrix-order">表示順<select id="matrix-order"><option value="similar">類似度が近い順</option><option value="category">料理区分順</option><option value="name">名前順</option></select></label><label for="matrix-size">表示する料理数<select id="matrix-size"><option value="24">24品（軽量）</option><option value="32" selected>32品（推奨）</option><option value="48">48品</option><option value="60">60品</option></select></label></div></div>
+      <div class="legend"><span>低い</span><span class="gradient"></span><span>高い</span><small>灰色：比較不可</small></div>
+      <div class="plot-scroller"><svg id="atlas-matrix" role="img" aria-label="料理の類似度ヒートマップ"></svg></div>
+      <p class="method-note" id="matrix-scope" aria-live="polite">推薦候補から少数の料理だけを選んで描画します。</p><p class="method-note">※ 7つの特徴量の重み付き類似度を表示しています。表示順は類似度に基づく簡易な並べ替えで、統計的なクラスタリングではありません。</p>
+    </section>
+    <section class="panel" id="network-panel" hidden>
+      <div class="heading"><div><div class="eyebrow">02 / 料理のつながりを比較</div><h2>料理のつながりを探る</h2><p>線の太さは類似度の強さ、色は料理区分です。</p></div>
+      <label for="network-threshold">表示する類似度の下限：<output id="threshold-label">55%</output>
+      <input type="range" id="network-threshold" min="0.2" max="0.95" step="0.05" value="0.55"></label></div>
+      <div class="network-plot"><svg id="atlas-network" role="img" aria-label="レシピ類似性ネットワーク"></svg></div>
+      <p class="method-note" id="network-message"></p>
+    </section>
+    <div class="panel-open-controls"><button id="lab-toggle" aria-controls="lab-panel" aria-expanded="false" type="button">重み・順位分析を開く ↓</button><span>負荷を抑えるため、順位の感度分析は必要なときに計算します。</span></div>
+    <section class="panel" id="lab-panel" hidden>
+      <div class="heading"><div><div class="eyebrow">03 / 特徴量の影響を比較</div><h2>重み変更と推薦順位</h2><p>特徴量の重みを変化させ、推薦順位がどう移動するかを確認します。</p></div>
+      <label for="lab-feature">変更する特徴量<select id="lab-feature"></select></label></div>
+      <div class="lab-controls"><label for="lab-weight">特徴量の重み：<output id="lab-weight-value">35</output><input id="lab-weight" type="range" min="0" max="100" step="1" value="35"></label>
+      <button type="button" id="lab-reset">重みを初期値に戻す</button><small>他の6項目の重みは固定。類似度は自動で再正規化します。</small></div>
+      <div class="lab-plot"><svg id="atlas-rank" role="img" aria-label="重みの変化と推薦順位の関係"></svg></div><div id="lab-results"></div>
+    </section>
+    <section class="panel" id="explain-panel"><div class="heading"><div><div class="eyebrow">7項目から理由を確認</div>
+      <h2>なぜ似ているのか？</h2><p>7項目ごとの類似度と寄与度を表示します。</p></div></div><div id="atlas-explain"></div></section>
+    <footer>出典：data/delish_teiban_photo.json（DELISH KITCHEN）。スコアは好みの一致確率ではありません。</footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="data-adapter.js"></script>
+  <script src="vector-core.js"></script>
+  <script src="atlas-core.js"></script>
+  <script src="atlas-network.js"></script>
+  <script src="atlas-weightlab.js"></script>
+  <script src="atlas.js"></script>
+</body>
+</html>

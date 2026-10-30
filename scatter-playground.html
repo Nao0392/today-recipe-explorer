@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>点が多い散布図の見せ方(試作)</title>
+  <style>
+    :root {
+      --ink: #2b2620; --muted: #7a7168; --line: #e7ddd2; --bg: #faf7f2; --card: #fff;
+      --orange: #e5793a; --mint: #2e9d6f; --mint-soft: #e6f5ee;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic", sans-serif; font-size: 14px; }
+    header { padding: 18px 24px 6px; }
+    header h1 { margin: 0; font-size: 22px; color: #ad4315; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: 13px; max-width: 1040px; line-height: 1.65; }
+    section, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .controls { margin: 12px 24px; padding: 12px 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 5px 0; font-size: 13px; }
+    .row > label:first-child { min-width: 6em; font-weight: 700; }
+    input[type="text"], select, button { font: inherit; }
+    input[type="text"], select { padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+    #have { flex: 1; min-width: 220px; max-width: 520px; }
+    button { padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+    button:hover { border-color: var(--orange); }
+    .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 24px 10px; align-items: center; }
+    .tabs .group { font-size: 12px; font-weight: 700; color: var(--muted); margin: 0 2px 0 8px; }
+    .tabs .group:first-child { margin-left: 0; }
+    .tabs button { font-size: 13px; }
+    .tabs button.on { background: #ad4315; border-color: #ad4315; color: #fff; }
+    .main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; margin: 0 24px 28px; align-items: start; }
+    @media (max-width: 1000px) { .main { grid-template-columns: 1fr; } }
+    .chartbox { padding: 12px 14px; }
+    h2 { margin: 0 0 4px; font-size: 17px; color: #ad4315; }
+    .desc { font-size: 13px; line-height: 1.65; margin: 0 0 6px; }
+    .proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin: 6px 0 8px; }
+    .proscons div { border-radius: 8px; padding: 6px 9px; line-height: 1.55; }
+    .pros { background: var(--mint-soft); } .cons { background: #fdf0e6; }
+    .proscons b { display: block; font-size: 11px; color: var(--muted); }
+    .view-ctrl { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 13px; margin: 4px 0 8px; min-height: 26px; }
+    #chart-wrap { position: relative; }
+    #chart { display: block; width: 100%; background: #fffdfa; border: 1px solid var(--line); border-radius: 10px; }
+    #chart text { font-size: 11px; fill: #4a423c; }
+    #chart .axis text { fill: #6b625b; }
+    #chart .axis path, #chart .axis line { stroke: #cfc3b6; }
+    #chart .grid line { stroke: #f1e8de; }
+    #chart .label { font-size: 11px; font-weight: 700; paint-order: stroke; stroke: #fffdfa; stroke-width: 3px; pointer-events: none; fill: #2b2620; }
+    #chart .cell, #chart .hex, #chart .dot { cursor: pointer; }
+    #chart .cell.sel, #chart .hex.sel { stroke: #2b2620; stroke-width: 2px; }
+    #chart .facet-title { font-size: 12px; font-weight: 700; fill: #ad4315; }
+    .tip { position: absolute; pointer-events: none; background: rgba(43,38,32,.92); color: #fff; padding: 6px 9px; border-radius: 8px; font-size: 12px; line-height: 1.5; z-index: 10; max-width: 260px; }
+    .tip[hidden] { display: none; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; margin-top: 6px; color: #4a423c; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+    .panel { padding: 12px 14px; max-height: 760px; overflow: auto; }
+    .panel h3 { margin: 0 0 4px; font-size: 15px; }
+    .small { font-size: 11px; color: var(--muted); }
+    ol.list { margin: 6px 0 0; padding-left: 22px; }
+    ol.list li { margin: 5px 0; line-height: 1.4; }
+    ol.list a { color: var(--ink); text-decoration: none; border-bottom: 1px dotted #b8aea3; }
+    ol.list a:hover { color: #c2410c; }
+    .m { display: inline-block; min-width: 34px; font-size: 11px; color: #1f6e4d; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🔍 点が多い散布図の見せ方(試作)</h1>
+    <p>レシピが2468品に増えて、1点1品の散布図が見づらくなった問題に対して、いくつかの見せ方を並べて比べるページです。
+      調理時間は 5・10・15・20・30・40・60・90・120分 などの<b>決まった値がほとんど</b>(全部で13通り)で、点が縦の線に固まりやすいのが大きな原因です。
+      タブは目的で分けています。<b>まず試す</b>(今の散布図のまま、手軽に読みやすくする)→ 足りなければ <b>1品を選ぶ</b>(検索ページ向け)か <b>傾向を見る</b>(紹介・分析ページ向け)。
+      マス・点・六角形などをクリックすると、右に中のレシピが出ます(マッチ度の高い順)。
+      散布図以外の見せ方(時計の文字盤・買い足しの階段・組み合わせ表)も「新しい見せ方」で試しています。</p>
+  </header>
+
+  <section class="controls">
+    <div class="row">
+      <label for="have">今ある食材</label>
+      <input id="have" type="text" value="玉ねぎ、卵、豚肉、キャベツ" placeholder="「、」やスペース区切り">
+      <span class="small" id="unknown"></span>
+    </div>
+    <div class="row">
+      <label for="ykey">縦軸</label>
+      <select id="ykey">
+        <option value="price">値段(1人前)</option>
+        <option value="kcal">カロリー(1人前)</option>
+        <option value="protein">たんぱく質(1人前)</option>
+      </select>
+      <label for="tscale" style="margin-left:10px;font-weight:700">時間の軸</label>
+      <select id="tscale">
+        <option value="ord">順番だけ(5・10・15・20・30…分を等間隔)</option>
+        <option value="lin">ふつう(0〜120分を等間隔)</option>
+        <option value="log">対数</option>
+      </select>
+      <span class="small">「0. まず試す」以外は、横軸が調理時間です</span>
+    </div>
+  </section>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="main">
+    <section class="chartbox">
+      <h2 id="view-title"></h2>
+      <p class="desc" id="view-desc"></p>
+      <div class="proscons"><div class="pros"><b>向いていること</b><span id="view-pros"></span></div><div class="cons"><b>弱いところ</b><span id="view-cons"></span></div></div>
+      <div class="view-ctrl" id="view-ctrl"></div>
+      <div id="chart-wrap"><svg id="chart"></svg><div class="tip" id="tip" hidden></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <div class="panel" id="list"><p class="small">マス・点などをクリックすると、中のレシピがここに出ます。</p></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="data-adapter.js"></script>
+  <script src="scatter-playground.js"></script>
+</body>
+</html>

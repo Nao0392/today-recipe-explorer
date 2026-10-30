@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>散布図表現の比較 | 世界のレシピ探索</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root { --ink:#302b29; --muted:#777; --line:#eae7e3; --paper:#fff; --bg:#faf9f6; --orange:#f97316; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif; }
+    main { width:min(1120px, calc(100% - 32px)); margin:0 auto; padding:32px 0 56px; }
+    h1 { margin:0; font-size:clamp(23px,4vw,32px); }
+    .lead { margin:8px 0 20px; color:var(--muted); font-size:14px; line-height:1.7; }
+    .controls, .variant { border:1px solid var(--line); border-radius:16px; background:var(--paper); }
+    .controls { display:flex; align-items:end; flex-wrap:wrap; gap:12px; padding:16px; }
+    .controls label { display:grid; gap:5px; font-size:13px; font-weight:700; }
+    input { width:min(360px, 70vw); padding:9px 11px; border:1px solid var(--line); border-radius:9px; font:inherit; }
+    input:focus { outline:3px solid #fff0e3; border-color:var(--orange); }
+    button { padding:10px 15px; border:0; border-radius:9px; color:#fff; background:var(--orange); font:inherit; font-weight:700; cursor:pointer; }
+    .count { align-self:center; color:var(--muted); font-size:13px; }
+    .variants { display:grid; gap:20px; margin-top:24px; }
+    .variant { overflow:hidden; }
+    .variant-head { display:flex; align-items:start; justify-content:space-between; gap:16px; padding:18px 20px 12px; border-bottom:1px solid var(--line); }
+    .variant-head h2 { margin:0; font-size:19px; }
+    .variant-head p { margin:5px 0 0; color:var(--muted); font-size:13px; line-height:1.55; }
+    .badge { flex:0 0 auto; padding:4px 9px; border-radius:999px; color:#a33b0c; background:#fff0e3; font-size:12px; font-weight:700; }
+    .chart-wrap { position:relative; padding:8px 14px 15px; overflow-x:auto; }
+    svg { display:block; width:100%; min-width:680px; height:auto; }
+    .axis text { fill:#777; font-size:11px; }
+    .axis path, .axis line, .grid line { stroke:#eae7e3; }
+    .grid path { display:none; }
+    .axis-label { fill:#777; font-size:11px; }
+    .ready { fill:#eaf5ed; }
+    .ready-label { fill:#317347; font-size:11px; font-weight:700; }
+    .point { cursor:pointer; }
+    .point circle { stroke-width:2; }
+    .point:hover circle, .point:focus circle { stroke:#302b29; stroke-width:3; filter:drop-shadow(0 1px 3px rgba(0,0,0,.25)); }
+    .point:focus { outline:none; }
+    #tip { position:fixed; z-index:5; max-width:260px; padding:8px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; box-shadow:0 6px 18px rgba(48,43,41,.12); font-size:12px; line-height:1.55; pointer-events:none; }
+    #tip[hidden] { display:none; }
+    .test-note { margin:24px 0 0; padding:16px 18px; border-left:4px solid var(--orange); border-radius:0 10px 10px 0; background:#fff; color:#514a46; font-size:13px; line-height:1.7; }
+    .test-note strong { color:var(--orange); }
+    @media (max-width:600px) { main { width:min(100% - 22px, 1120px); padding-top:20px; } .variant-head { padding:14px; } .variant-head h2 { font-size:16px; } .badge { font-size:11px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>散布図の表現比較</h1>
+    <p class="lead">主菜だけを対象に、同じレシピ・同じ対数軸・同じ重なり回避条件で、マーカー表現だけを比較します。点に触れると料理名と正確な値を確認できます。</p>
+    <form class="controls" id="controls">
+      <label>今ある食材（「、」または空白で区切る）
+        <input id="ingredients" value="玉ねぎ、卵" autocomplete="off">
+      </label>
+      <button type="submit">3案を更新</button>
+      <span class="count" id="count" aria-live="polite"></span>
+    </form>
+
+    <section class="variants" aria-label="3種類の散布図">
+      <article class="variant">
+        <div class="variant-head"><div><h2>A. 絵文字＋同一サイズ</h2><p>現在のサイトに近い、スタイル色の枠線と料理絵文字による表現です。縦軸は対数目盛です。</p></div><span class="badge">現状案</span></div>
+        <div class="chart-wrap"><svg id="chart-a" role="img" aria-label="絵文字マーカーの散布図"></svg></div>
+      </article>
+      <article class="variant">
+        <div class="variant-head"><div><h2>C. 色付き円＋材料充足率サイズ＋半透明塗り</h2><p>大きい円ほど、必要材料に対して手元にある材料の割合が高いことを表します。縦軸は対数目盛です。</p></div><span class="badge">多変量案</span></div>
+        <div class="chart-wrap"><svg id="chart-c" role="img" aria-label="材料充足率を大きさで表した散布図"></svg></div>
+      </article>
+      <article class="variant">
+        <div class="variant-head"><div><h2>D. 大きな円だけ料理アイコンを表示</h2><p>C案を基に、材料充足率が50%以上の料理だけアイコンを重ねます。大きな円の意味を補い、低充足率の密集は円だけで保ちます。</p></div><span class="badge">ハイブリッド案</span></div>
+        <div class="chart-wrap"><svg id="chart-d" role="img" aria-label="大きな円だけ料理アイコンを表示する散布図"></svg></div>
+      </article>
+    </section>
+
+    <p class="test-note"><strong>見せる人への依頼例：</strong>「不足食材が3個以下で、30分以内の料理を1つ見つけてください」「不足食材数と調理時間を答えてください」。各案で、見つけやすさ・読み取りやすさ・見た目の好みを聞いてください。</p>
+  </main>
+  <div id="tip" hidden></div>
+
+  <script>
+    const DATA_URL = "data/delish_teiban_photo.json";
+    const COLORS = { "和風":"#f26b38", "中華":"#f2ad3d", "韓国風":"#22a35a", "洋風":"#4a90e2", "その他":"#8d5ce6" };
+    const chartInfo = [
+      { id:"chart-a", mode:"emoji" },
+      { id:"chart-c", mode:"bubble" },
+      { id:"chart-d", mode:"hybrid" },
+    ];
+    const tip = d3.select("#tip");
+    let recipes = [];
+
+    function parseTerms(value) { return new Set(value.split(/[、,，\s]+/).map(s => s.trim()).filter(Boolean)); }
+    function styleColor(style) { return COLORS[style] || COLORS["その他"]; }
+    function tooltip(event, d) {
+      tip.attr("hidden", null).html(`<b>${d.name}</b><br>不足食材 ${d.missing}個・調理 ${d.time_min}分<br>材料充足率 ${Math.round(d.coverage * 100)}%・${d.style}`)
+        .style("left", `${event.clientX + 13}px`).style("top", `${event.clientY + 13}px`);
+    }
+    const hideTip = () => tip.attr("hidden", true);
+
+    function prepare() {
+      const have = parseTerms(document.querySelector("#ingredients").value);
+      const matching = recipes.filter(r => r.category === "主菜").map(r => {
+        const names = r.ingredients.map(i => i.name);
+        const matched = names.filter(n => have.has(n));
+        return { ...r, missing: names.length - matched.length, coverage: names.length ? matched.length / names.length : 0 };
+      }).filter(d => d.coverage > 0);
+      document.querySelector("#count").textContent = `主菜 ${matching.length}件を3案すべてに表示中`;
+      chartInfo.forEach(info => render(info, matching));
+    }
+
+    function render({ id, mode }, data) {
+      const svg = d3.select(`#${id}`);
+      const W = svg.node().getBoundingClientRect().width || 1000, H = 300;
+      const m = { top:24, right:20, bottom:44, left:58 };
+      svg.attr("viewBox", `0 0 ${W} ${H}`);
+      const maxMissing = Math.max(1, d3.max(data, d => d.missing) || 1);
+      const columns = d3.range(0, maxMissing + 1);
+      const x = d3.scaleBand().domain(columns).range([m.left, W - m.right]);
+      const minTime = Math.max(1, d3.min(data, d => d.time_min) || 1);
+      const observedMaxTime = d3.max(data, d => d.time_min) || minTime;
+      const maxTime = observedMaxTime > minTime ? observedMaxTime : minTime * 2;
+      const y = d3.scaleLog().domain([minTime, maxTime]).range([H - m.bottom, m.top]);
+      const yTicks = [...new Set([minTime, 5, 10, 15, 20, 30, 40, 60, 90, 120, observedMaxTime])]
+        .filter(v => v >= minTime && v <= maxTime).sort((a, b) => a - b);
+      // C/Dでは半径を3〜26px程度に広げ、材料充足率の差を読み取りやすくする。
+      const radius = d => (mode === "bubble" || mode === "hybrid") ? 3 + d.coverage * 23 : 10;
+      const band = x.bandwidth();
+
+      svg.selectAll("*").remove();
+      svg.append("rect").attr("class", "ready").attr("x", x(0)).attr("y", m.top).attr("width", band).attr("height", H - m.top - m.bottom);
+      svg.append("text").attr("class", "ready-label").attr("x", x(0) + band / 2).attr("y", m.top + 14).attr("text-anchor", "middle").text("今すぐ作れる");
+      svg.append("g").attr("class", "grid").attr("transform", `translate(${m.left},0)`).call(d3.axisLeft(y).tickValues(yTicks).tickSize(-(W - m.left - m.right)).tickFormat(""));
+      svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - m.bottom})`).call(d3.axisBottom(x).tickFormat(d => `${d}個`));
+      svg.append("g").attr("class", "axis").attr("transform", `translate(${m.left},0)`).call(d3.axisLeft(y).tickValues(yTicks).tickFormat(d => `${d}分`));
+      svg.append("text").attr("class", "axis-label").attr("x", W - m.right).attr("y", H - 7).attr("text-anchor", "end").text("足りない食材の数");
+      svg.append("text").attr("class", "axis-label").attr("x", m.left + 4).attr("y", 14).text("調理時間（対数目盛）");
+
+      const nodes = data.map((d, i) => ({ d, r:radius(d), cx:x(d.missing) + band / 2, cy:y(d.time_min), x:x(d.missing) + band / 2 + (i % 3 - 1) * 3, y:y(d.time_min) }));
+      const sim = d3.forceSimulation(nodes).randomSource(d3.randomLcg(4)).stop()
+        .force("x", d3.forceX(n => n.cx).strength(.18))
+        .force("y", d3.forceY(n => n.cy).strength(.85))
+        .force("collide", d3.forceCollide(n => n.r + 1.5));
+      for (let i = 0; i < 160; i++) sim.tick();
+      for (const n of nodes) {
+        n.x = Math.max(n.cx - band / 2 + n.r, Math.min(n.cx + band / 2 - n.r, n.x));
+        n.y = Math.max(m.top + n.r, Math.min(H - m.bottom - n.r, n.y));
+      }
+
+      const points = svg.append("g").selectAll("g.point").data(nodes, n => n.d.id).join("g")
+        .attr("class", "point").attr("tabindex", 0).attr("role", "img")
+        .attr("aria-label", n => `${n.d.name}、不足食材${n.d.missing}個、調理${n.d.time_min}分`)
+        .attr("transform", n => `translate(${n.x},${n.y})`)
+        .on("mouseenter", (event, n) => tooltip(event, n.d)).on("mousemove", (event, n) => tooltip(event, n.d)).on("mouseleave", hideTip)
+        .on("focus", (event, n) => tooltip(event, n.d)).on("blur", hideTip);
+      points.append("circle").attr("r", n => n.r).attr("stroke", n => styleColor(n.d.style))
+        .attr("fill", n => (mode === "bubble" || mode === "hybrid") ? styleColor(n.d.style) : "#fff")
+        .attr("fill-opacity", (mode === "bubble" || mode === "hybrid") ? .42 : 1);
+      if (mode === "emoji") points.append("text").attr("text-anchor", "middle").attr("dy", ".35em").attr("font-size", "12px").text(n => n.d.emoji || "🍽️");
+      if (mode === "hybrid") points.filter(n => n.d.coverage >= .5).append("text")
+        .attr("text-anchor", "middle").attr("dy", ".35em")
+        .attr("font-size", n => `${Math.max(12, n.r * 1.05)}px`).text(n => n.d.emoji || "🍽️");
+    }
+
+    fetch(DATA_URL).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).then(data => {
+      recipes = data.recipes || [];
+      prepare();
+      document.querySelector("#controls").addEventListener("submit", event => { event.preventDefault(); prepare(); });
+      window.addEventListener("resize", prepare);
+    }).catch(error => { document.querySelector("#count").textContent = `データを読み込めませんでした: ${error.message}`; });
+  </script>
+</body>
+</html>

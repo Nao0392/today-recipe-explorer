@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tutorial 05 — What-if Ranking & Cumulative Share</title>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <style>
+    :root{font-family:system-ui,-apple-system,'Noto Sans JP','Yu Gothic',sans-serif;background:#f2f6f5;color:#15362e;color-scheme:light}
+    *{box-sizing:border-box}body{margin:0;padding:20px}
+    .app{max-width:1240px;margin:0 auto}
+    .heading{display:flex;justify-content:space-between;gap:14px;align-items:start;margin-bottom:18px;flex-wrap:wrap}
+    .eyebrow{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#0a8b6e;margin-bottom:6px}
+    h1{font-size:clamp(20px,3vw,29px);letter-spacing:-.035em;margin:0 0 6px;font-weight:850}
+    .lead{margin:0;color:#607c71;font-size:13px;line-height:1.6}
+    .tag{font-size:11px;font-weight:750;color:#168361;background:#dff5e8;padding:8px 12px;border:1px solid #c9e8d7;border-radius:24px;white-space:nowrap}
+    .panel{background:#fff;border:1px solid #dbe8df;border-radius:15px;box-shadow:0 7px 28px rgba(17,60,45,.035)}
+    .controls{display:grid;grid-template-columns:minmax(0,1fr) 1.65fr;gap:18px;padding:20px 22px;margin-bottom:14px;align-items:center}
+    .field label{display:block;font-size:12px;font-weight:750;color:#537263;margin-bottom:7px}
+    select,button,input{font:inherit}
+    select{width:100%;border:1px solid #c4d8cb;border-radius:8px;padding:10px 12px;color:#244a39;background:white;font-weight:700;font-size:13px;outline-color:#1a9977}
+    .adjust{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:8px}
+    .adjust strong{font-size:23px;color:#0d9473;font-variant-numeric:tabular-nums;line-height:1.2}
+    input[type=range]{width:100%;accent-color:#08946f;cursor:pointer;height:23px}
+    .ticks{display:flex;justify-content:space-between;color:#779087;font-size:10px;margin-bottom:9px}
+    .actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    button{border:1px solid #cbded1;background:white;color:#245843;border-radius:8px;padding:8px 11px;font-size:11px;font-weight:750;cursor:pointer;transition:background .15s}
+    button:hover{background:#ecf8ef;border-color:#0f9c77}
+    button.primary{background:#0a8b69;border-color:#0a8b69;color:#fff}
+    button.primary:hover{background:#05694f}
+    button:focus-visible{outline:3px solid #83c9ae;outline-offset:2px}
+    .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+    .metric{padding:14px 18px}
+    .metric .lbl{font-size:11px;color:#6a8377;font-weight:750;margin-bottom:4px}
+    .metric .value{font-size:24px;font-weight:850;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+    .metric .sub{font-size:11px;color:#779185;margin-top:2px}
+    .metric .accent{color:#0a9872}
+    .chart-head{padding:18px 22px 5px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+    .chart-head h2{font-size:16px;letter-spacing:-.02em;margin:0}
+    .chart-head p{margin:0;color:#7b9587;font-size:11px}
+    .chart{width:100%;padding:0 12px 3px}
+    .chart svg{width:100%;height:auto;display:block;overflow:visible}
+    .axis text{font-size:11px;fill:#557567}
+    .axis path,.axis line{stroke:#d2e0d7}
+    .grid line{stroke:#e5ede8;stroke-dasharray:3 5}
+    .grid path{display:none}
+    .lollipop-line{stroke:#a2b6ab;stroke-width:2;stroke-linecap:round;pointer-events:none}
+    .lollipop-dot{stroke:#fff;stroke-width:2.5;cursor:pointer;outline:none}
+    .lollipop-dot:focus{stroke:#ffbc65;stroke-width:5}
+    .foot{display:flex;flex-wrap:wrap;align-items:center;gap:18px;padding:0 22px 17px;font-size:11px;color:#688679}
+    .legend-dot{display:inline-block;width:10px;height:10px;vertical-align:middle;margin-right:5px;border-radius:50%}
+    .insight{background:#eaf7ef;border:1px solid #cce8d8;border-radius:11px;padding:13px 17px;margin-top:14px;color:#32694f;font-size:12px;line-height:1.7}
+    .insight strong{color:#087953}
+    .source{font-size:11px;color:#6c8578;line-height:1.7;margin-top:15px}
+    .source a{color:#168c6d;overflow-wrap:anywhere}
+    .tip{position:fixed;z-index:20;pointer-events:none;padding:9px 11px;background:#173d32;color:#f5fff9;border-radius:8px;box-shadow:0 5px 17px #21392d30;font-size:12px;line-height:1.5;display:none}
+    .status{padding:25px;font-size:13px;color:#b54444}
+    @media(max-width:700px){body{padding:11px}.controls{grid-template-columns:1fr;padding:16px;gap:13px}.stats{gap:6px}.metric{padding:11px}.metric .value{font-size:19px}.chart{overflow-x:auto}.chart svg{min-width:700px}.chart-head{padding:15px}.foot{padding:0 15px 14px;gap:11px}}
+
+    /* Tutorial 05 additional interaction #2: cumulative concentration exploration */
+    .concentration{margin-top:15px;overflow:hidden;scroll-margin-top:15px}
+    .scroll-link{display:inline-block;color:#087653;font-weight:800;font-size:12px;background:#e6f6ec;border:1px solid #c6e8d2;border-radius:8px;padding:8px 10px;text-decoration:none;margin-top:8px}
+    .scroll-link:hover{background:#d8f0e1}
+    .concentration-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;padding:20px 22px 4px}
+    .concentration-head h2{font-size:18px;margin:0 0 5px;letter-spacing:-.02em}
+    .concentration-head p{margin:0;font-size:12px;color:#607c71;line-height:1.65}
+    .concentration-controls{display:grid;grid-template-columns:minmax(200px,.92fr) minmax(220px,1.4fr);gap:20px;padding:17px 22px 11px;align-items:center}
+    .goal-value{font-size:26px;color:#0a9673;font-weight:850;font-variant-numeric:tabular-nums}
+    .concentration-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:1px 22px 14px}
+    .sum-card{border:1px solid #deebe2;border-radius:10px;padding:12px 15px;background:#f8fcf9}
+    .sum-card .lbl{font-size:11px;color:#5b7a69;font-weight:750;margin-bottom:5px}
+    .sum-card .value{font-weight:850;font-size:23px;color:#0a7659;font-variant-numeric:tabular-nums}
+    .sum-card .sub{font-size:11px;color:#678478;margin-top:2px;line-height:1.5}
+    .analysis-vis{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(215px,.65fr);gap:16px;padding:0 17px 15px;align-items:start}
+    .analysis-chart{min-width:0}
+    .analysis-chart svg{display:block;width:100%;height:auto}
+    .analysis-chart .axis text{font-size:11px}
+    .analysis-list{background:#f7fbf8;border:1px solid #dce9df;border-radius:10px;padding:12px 13px;font-size:12px}
+    .analysis-list h3{font-size:13px;margin:0 0 9px;color:#234b36}
+    .analysis-list ol{margin:0;padding-left:25px}
+    .analysis-list li{padding:5px 0;color:#315a44;display:flex;gap:5px;justify-content:space-between;border-bottom:1px solid #e5efe8}
+    .analysis-list li:last-child{border-bottom:0}
+    .analysis-list li strong{font-variant-numeric:tabular-nums;color:#0b7d5b}
+    .analysis-list .desc{font-size:11px;color:#687e72;line-height:1.6;margin-top:10px}
+    .analysis-bottom{font-size:11px;line-height:1.7;color:#557765;padding:3px 22px 20px;border-top:1px solid #eef4ee}
+    .analysis-bottom b{color:#0d7b5d}
+    .line-key{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:11px;color:#57776b;margin:4px 0 8px;padding-left:11px}
+    .line-sample{display:inline-block;vertical-align:middle;width:19px;height:3px;border-radius:2px;margin-right:4px;background:#13a47b}
+    .line-sample.baseline{height:0;border-top:2px dashed #b0c6bc;background:transparent}
+    .concentration-note{font-size:11px;color:#647e71;padding:0 22px 17px;line-height:1.7}
+    @media(max-width:760px){.concentration-controls{grid-template-columns:1fr}.analysis-vis{grid-template-columns:1fr}.concentration-summary{grid-template-columns:1fr 1fr;gap:7px}.sum-card:last-child{grid-column:span 2}.sum-card .value{font-size:21px}.concentration-head{padding:15px 15px 3px}.concentration-controls,.concentration-summary{padding-left:15px;padding-right:15px}.analysis-vis{padding:0 10px 12px}.analysis-bottom,.concentration-note{padding-left:15px;padding-right:15px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="heading">
+    <div>
+      <div class="eyebrow">D3.js · HANDS-ON TUTORIAL 05</div>
+      <h1>国別の武器輸出量 — What-if ランキング</h1>
+      <p class="lead">国家を選択して輸出量を仮想的に変更すると、順位とチャートがアニメーションで再配置されます。</p>
+    </div>
+    <span class="tag">追加機能：順位の再配置 × 累積割合の分析</span>
+  </header>
+
+  <section class="controls panel">
+    <div class="field">
+      <label for="countrySelect">① シミュレーションする国を選択（棒の丸を直接クリックしてもOK）</label>
+      <select id="countrySelect" aria-label="国を選択"></select>
+    </div>
+    <div class="field">
+      <div class="adjust">
+        <label for="changeSlider">② 輸出量の仮想変化率</label>
+        <strong id="changeLabel">+0%</strong>
+      </div>
+      <input id="changeSlider" type="range" min="-90" max="700" step="5" value="0" aria-label="仮想変化率" />
+      <div class="ticks"><span>-90%</span><span>0%</span><span>+300%</span><span>+700%</span></div>
+      <div class="actions">
+        <button data-preset="-50">-50%</button>
+        <button data-preset="100">+100%</button>
+        <button data-preset="300">+300%</button>
+        <button id="passNext" class="primary">↑ 一つ上の国を追い越す</button>
+        <button id="reset">↺ リセット</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats" aria-live="polite">
+    <div class="metric panel"><div class="lbl">選択した国</div><div class="value" id="selectedCountry">France</div><div class="sub">2017年・元データ</div></div>
+    <div class="metric panel"><div class="lbl">シミュレーション値（SIPRI TIV）</div><div class="value" id="selectedValue">2,162</div><div class="sub" id="originalValue">実データ 2,162</div></div>
+    <div class="metric panel"><div class="lbl">順位の変化</div><div class="value accent" id="rankChange">3位 → 3位</div><div class="sub" id="rankDelta">現状維持</div></div>
+  </section>
+
+  <section class="panel">
+    <div class="chart-head">
+      <h2>武器輸出量ランキング（2017年の課題データ）</h2>
+      <p>丸をクリックして選択 · 緑 = 元データ · オレンジ = 仮想的に変更した国</p>
+    </div>
+    <div id="my_dataviz" class="chart"></div>
+    <div class="foot">
+      <span><span class="legend-dot" style="background:#159b78"></span>2017年のデータ</span>
+      <span><span class="legend-dot" style="background:#ee9e4f"></span>選択してシミュレーション中</span>
+      <span><span class="legend-dot" style="background:white;border:2px solid #ee9e4f"></span>選択国の元の値</span>
+    </div>
+  </section>
+
+  <section class="panel concentration" aria-labelledby="concentrationTitle">
+    <div class="concentration-head">
+      <div>
+        <h2 id="concentrationTitle">③ 上位何カ国で輸出量の何％を占める？</h2>
+        <p>累積割合を操作して、輸出量が特定の国にどの程度集中しているか探ろう。</p>
+      </div>
+      <span class="tag">追加機能：累積割合 × しきい値 × 連動表示</span>
+    </div>
+    <div class="concentration-controls">
+      <div class="field">
+        <label for="shareSlider">目標とする累積割合</label>
+        <div class="goal-value" id="shareValue">80%</div>
+      </div>
+      <div class="field">
+        <input id="shareSlider" type="range" min="30" max="95" step="5" value="80" aria-label="目標累積割合" />
+        <div class="ticks"><span>30%</span><span>50%</span><span>70%</span><span>95%</span></div>
+        <div class="actions"><button type="button" data-share="50">50%</button><button type="button" data-share="70">70%</button><button type="button" data-share="80">80%</button><button type="button" data-share="90">90%</button></div>
+      </div>
+    </div>
+    <div class="concentration-summary" aria-live="polite">
+      <div class="sum-card"><div class="lbl">目標に達する上位の国数</div><div class="value" id="neededCountries">5カ国</div><div class="sub" id="neededDesc">データ内の10カ国が対象</div></div>
+      <div class="sum-card"><div class="lbl">その国数での実際の累積割合</div><div class="value" id="achievedShare">82.6%</div><div class="sub">指定した目標を初めて超える割合</div></div>
+      <div class="sum-card"><div class="lbl">データ内の輸出量合計</div><div class="value" id="totalValue">28,606</div><div class="sub">SIPRI TIV · 10カ国の合計（世界全体ではない）</div></div>
+    </div>
+    <div class="line-key">
+      <span><i class="line-sample"></i>現在の累積割合</span>
+      <span><i class="line-sample baseline"></i>元の2017年データ</span>
+      <span>オレンジの点：目標到達地点</span>
+    </div>
+    <div class="analysis-vis">
+      <div id="concentrationChart" class="analysis-chart" aria-label="上位国数と累積輸出量割合の関係を示す折れ線グラフ"></div>
+      <div class="analysis-list"><h3 id="topListTitle">目標達成に必要な国</h3><ol id="topCountries"></ol><p class="desc" id="shareContext">元データと仮想シミュレーションの値を混同しないようにご注意ください。</p></div>
+    </div>
+    <div class="analysis-bottom" id="concentrationInsight">指定した割合に到達する上位国数を計算しています。</div>
+    <p class="concentration-note"><b>重要：</b>この割合は元のCSVに掲載された<b>10カ国の合計</b>を100%として計算します。世界全体の武器輸出シェアではありません。仮想変化率を調整した場合、累積曲線も仮想データで再計算します。</p>
+  </section>
+
+  <div class="insight" id="insight"><strong>操作方法：</strong>点または国名を選択し、変化率を調整してください。</div>
+  <div class="source"><strong>注意：</strong>「変化率」と「シミュレーション値」は授業用の仮想計算であり、実際の2017年の記録を書き換えるものではありません。元データは既存のチュートリアル例と同じCSV値です。<br />
+    参照：<a href="https://raw.githubusercontent.com/holtzy/data_to_viz/master/Example_dataset/7_OneCatOneNum_header.csv" target="_blank" rel="noopener">D3 Data-to-Viz 例の CSV</a> ／ <a href="https://www.data-to-viz.com/story/OneNumOneCat.html" target="_blank" rel="noopener">元のグラフの説明</a></div>
+</div>
+<div id="tooltip" class="tip" aria-hidden="true"></div>
+<script>
+(() => {
+  // The values below are the same as the CSV referenced by the original tutorial.
+  // Embedding them removes fetch/CORS problems when opening this HTML with file://.
+  const originalCsv = `Country,Value
+United States,12394
+Russia,6148
+Germany (FRG),1653
+France,2162
+United Kingdom,1214
+China,1131
+Spain,814
+Netherlands,1167
+Italy,660
+Israel,1263`;
+  const statusHost = document.getElementById('my_dataviz');
+  if (typeof d3 === 'undefined') {
+    statusHost.innerHTML = '<div class="status">D3.js を読み込めませんでした。インターネット接続を確認し、ページを再読み込みしてください。</div>';
+    return;
+  }
+  const data = d3.csvParse(originalCsv, d => ({Country:d.Country, original: Number(d.Value)}));
+  const sourceOrder = new Map(data.map((d, i) => [d.Country, i]));
+  const baseSort = (arr) => [...arr].sort((a,b) => b.original-a.original || sourceOrder.get(a.Country)-sourceOrder.get(b.Country));
+  const fmt = d3.format(',d');
+  const select = document.getElementById('countrySelect');
+  const slider = document.getElementById('changeSlider');
+  const countryEl = document.getElementById('selectedCountry');
+  const selectedValueEl = document.getElementById('selectedValue');
+  const originalValueEl = document.getElementById('originalValue');
+  const changeLabel = document.getElementById('changeLabel');
+  const rankChange = document.getElementById('rankChange');
+  const rankDelta = document.getElementById('rankDelta');
+  const insight = document.getElementById('insight');
+  const tooltip = d3.select('#tooltip');
+  let selected = 'France';
+  let adjustment = 0;
+  for(const d of baseSort(data)) {
+    const option = document.createElement('option');
+    option.value=d.Country;option.textContent=d.Country;select.appendChild(option);
+  }
+  select.value=selected;
+  const outerW=1140,outerH=485,margin={top:31,right:28,bottom:86,left:83};
+  const width=outerW-margin.left-margin.right;
+  const height=outerH-margin.top-margin.bottom;
+  const svg=d3.select('#my_dataviz').append('svg')
+    .attr('viewBox', `0 0 ${outerW} ${outerH}`)
+    .attr('role','img')
+    .attr('aria-label','国別武器輸出量ランキング：円を押すと仮想的な変化率を指定できます')
+    .append('g').attr('transform',`translate(${margin.left},${margin.top})`);
+  const x = d3.scaleBand().domain(data.map(d=>d.Country)).range([0,width]).padding(.52);
+  const y = d3.scaleLinear().domain([0,13500]).range([height,0]).nice();
+  const axisX = svg.append('g').attr('class','axis x-axis').attr('transform',`translate(0,${height})`);
+  const grid = svg.append('g').attr('class','grid').call(d3.axisLeft(y).ticks(6).tickSize(-width).tickFormat(''));
+  const axisY = svg.append('g').attr('class','axis y-axis').call(d3.axisLeft(y).ticks(6).tickFormat(d3.format(',')));
+  svg.append('text').attr('x',-height/2).attr('y',-60).attr('transform','rotate(-90)')
+    .attr('text-anchor','middle').attr('fill','#607c70').attr('font-size',12).text('武器輸出量 (SIPRI TIV)');
+  svg.append('text').attr('x',width).attr('y',-14).attr('text-anchor','end')
+    .attr('fill','#b97735').attr('font-size',11).text('※オレンジは仮想値');
+  const plot = svg.append('g');
+  const lines=plot.selectAll('line.lollipop-line').data(data,d=>d.Country).join('line')
+    .attr('class','lollipop-line').attr('x1',d=>x(d.Country)+x.bandwidth()/2).attr('x2',d=>x(d.Country)+x.bandwidth()/2)
+    .attr('y1',d=>y(d.original)).attr('y2',y(0));
+  const baseline=plot.append('circle').attr('r',8).attr('fill','white').attr('stroke','#ec9e50')
+    .attr('stroke-width',2).attr('pointer-events','none');
+  const dots=plot.selectAll('circle.lollipop-dot').data(data,d=>d.Country).join('circle')
+    .attr('class','lollipop-dot')
+    .attr('tabindex',0).attr('role','button')
+    .attr('cx',d=>x(d.Country)+x.bandwidth()/2).attr('cy',d=>y(d.original)).attr('r',7)
+    .attr('fill','#149d79')
+    .on('click',(_, d)=>selectCountry(d.Country))
+    .on('keydown',(ev,d)=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();selectCountry(d.Country);}})
+    .on('mousemove',function(event,d){
+      const sim=d.Country===selected?Math.max(0,d.original*(1+adjustment/100)):d.original;
+      const value=`<b>${d.Country}</b><br>元の値: ${fmt(d.original)}${d.Country===selected?`<br>仮想値: ${fmt(Math.round(sim))}`:''}`;
+      tooltip.html(value).style('display','block')
+        .style('left',`${event.clientX+13}px`).style('top',`${event.clientY-58}px`);
+    })
+    .on('mouseleave',()=>tooltip.style('display','none'));
+  // ===== Tutorial #5: additional function — cumulative concentration =====
+  const shareSlider = document.getElementById('shareSlider');
+  const shareValue = document.getElementById('shareValue');
+  const concentrationHost = d3.select('#concentrationChart');
+  const cOuterW = 770, cOuterH = 340;
+  const cm = {top:22,right:34,bottom:54,left:57};
+  const cw = cOuterW - cm.left - cm.right, ch = cOuterH - cm.top - cm.bottom;
+  const csvg = concentrationHost.append('svg')
+    .attr('viewBox', `0 0 ${cOuterW} ${cOuterH}`)
+    .attr('role','img')
+    .attr('aria-label','上位の国数と累積輸出量の関係：グレーが元データ、緑が現在の仮想データ、オレンジが指定した目標点です')
+    .append('g').attr('transform', `translate(${cm.left},${cm.top})`);
+  const cx = d3.scaleLinear().domain([0,data.length]).range([0,cw]);
+  const cy = d3.scaleLinear().domain([0,100]).range([ch,0]);
+  // Origin is at (0,0); cumulative percentages are computed from top to bottom.
+  const caxisX=csvg.append('g').attr('class','axis').attr('transform',`translate(0,${ch})`)
+    .call(d3.axisBottom(cx).ticks(10).tickFormat(d3.format('d')));
+  const caxisY=csvg.append('g').attr('class','axis')
+    .call(d3.axisLeft(cy).ticks(5).tickFormat(d=>d+'%'));
+  csvg.append('g').attr('class','grid')
+    .call(d3.axisLeft(cy).ticks(5).tickSize(-cw).tickFormat(''));
+  csvg.append('text').attr('x',cw/2).attr('y',ch+42).attr('text-anchor','middle')
+    .attr('font-size',12).attr('fill','#547468').text('上位の国数 (カ国)');
+  csvg.append('text').attr('transform','rotate(-90)').attr('x',-ch/2).attr('y',-41)
+    .attr('text-anchor','middle').attr('font-size',12).attr('fill','#547468')
+    .text('累積割合 (%)');
+  const cumulativeLine=d3.line().x(d=>cx(d.rank)).y(d=>cy(d.share))
+    .curve(d3.curveMonotoneX);
+  const cumulativeArea=d3.area().x(d=>cx(d.rank)).y0(cy(0)).y1(d=>cy(d.share))
+    .curve(d3.curveMonotoneX);
+  const guide = csvg.append('line').attr('stroke','#f3a74b').attr('stroke-width',1.4).attr('stroke-dasharray','6 5');
+  const guideLabel=csvg.append('text').attr('font-size',11).attr('fill','#b77829')
+    .attr('x',cw-3).attr('text-anchor','end');
+  const areaPath=csvg.append('path').attr('fill','rgba(17,160,119,.10)');
+  const basePath=csvg.append('path').attr('fill','none').attr('stroke','#a5bcb0')
+    .attr('stroke-width',2).attr('stroke-dasharray','5 5');
+  const simPath=csvg.append('path').attr('fill','none').attr('stroke','#0f9b76').attr('stroke-width',3);
+  const points=csvg.append('g').selectAll('circle').data(d3.range(1,data.length+1).map(rank=>({rank})),d=>d.rank).join('circle')
+    .attr('r',4.5).attr('fill','#0e9c74').attr('stroke','#fff').attr('stroke-width',1.4);
+  const marker=csvg.append('circle').attr('r',8).attr('fill','#efaa50')
+    .attr('stroke','white').attr('stroke-width',2.5);
+  const markerLabel=csvg.append('text').attr('font-size',12).attr('font-weight','800')
+    .attr('fill','#b77728').attr('text-anchor','middle');
+  const baselineSorted=baseSort(data).map(d=>({...d,simulated:d.original}));
+  function cumulative(sorted) {
+    const total=d3.sum(sorted, d=>d.simulated);
+    let acc=0;
+    return [{rank:0,share:0}].concat(sorted.map((d,i)=>{
+      acc += d.simulated;
+      return {rank:i+1,share:total>0?acc/total*100:0,country:d.Country,value:d.simulated};
+    }));
+  }
+  const baselineCumulative=cumulative(baselineSorted);
+  const getGoal = ()=>Number(shareSlider.value);
+  function renderConcentration(sorted){
+    const goal = getGoal();
+    const c = cumulative(sorted);
+    const cutoff = c.slice(1).find(v=>v.share+1e-9>=goal) || c[c.length-1];
+    const needed=cutoff.rank;
+    const included = new Set(sorted.slice(0,needed).map(d=>d.Country));
+    const total = d3.sum(sorted,d=>d.simulated);
+    document.getElementById('neededCountries').textContent=needed+'カ国';
+    document.getElementById('neededDesc').textContent=`上位${needed}カ国 / 全${data.length}カ国`;
+    document.getElementById('achievedShare').textContent=cutoff.share.toFixed(1)+'%';
+    document.getElementById('totalValue').textContent=fmt(Math.round(total));
+    shareValue.textContent=goal+'%';
+    shareSlider.setAttribute('aria-valuetext',goal+'%');
+    document.getElementById('topListTitle').textContent=`上位${needed}カ国（現在の順位）`;
+    const list=document.getElementById('topCountries');
+    list.replaceChildren();
+    for(const [i,d] of sorted.slice(0,needed).entries()){
+      const item=document.createElement('li');
+      const country=document.createElement('span');country.textContent=`${i+1}. ${d.Country}`;
+      const value=document.createElement('strong');value.textContent=fmt(Math.round(d.simulated));
+      item.append(country,value);list.appendChild(item);
+    }
+    document.getElementById('shareContext').textContent = adjustment!==0
+      ? `${selected} の仮想変化率 ${formatSigned(adjustment)} を反映した数値です。` 
+      : 'すべて2017年の課題CSV値で計算しています。';
+    const originalNeeded=baselineCumulative.slice(1).find(v=>v.share>=goal-1e-9)?.rank||data.length;
+    const difference = needed-originalNeeded;
+    const changeExplanation=adjustment===0
+      ? '現在は元の2017年CSV値のままです。'
+      : `仮想変更前は${originalNeeded}カ国、変更後は${needed}カ国で到達します${difference===0?'（必要国数は同じ）':`（${Math.abs(difference)}カ国${difference<0?'減少':'増加'}）`}。`;
+    document.getElementById('concentrationInsight').innerHTML=
+      `このCSV内の10カ国の輸出量合計を100%とすると、上位 <b>${needed}カ国</b> で <b>${cutoff.share.toFixed(1)}%</b> を占め、目標の <b>${goal}%</b> に到達します。${changeExplanation}`;
+    const ct=csvg.transition().duration(450).ease(d3.easeCubicInOut);
+    guide.transition(ct).attr('x1',0).attr('x2',cw).attr('y1',cy(goal)).attr('y2',cy(goal));
+    guideLabel.transition(ct).attr('y',Math.max(12,cy(goal)-7)).text(`目標 ${goal}%`);
+    basePath.attr('d',cumulativeLine(baselineCumulative));
+    areaPath.transition(ct).attr('d',cumulativeArea(c));
+    simPath.transition(ct).attr('d',cumulativeLine(c));
+    points.data(c.slice(1),d=>d.rank).transition(ct)
+      .attr('cx',d=>cx(d.rank)).attr('cy',d=>cy(d.share))
+      .attr('fill',d=>d.rank<=needed?'#0f9b76':'#b7c7bd')
+      .attr('r',d=>d.rank<=needed?5:4);
+    marker.transition(ct).attr('cx',cx(needed)).attr('cy',cy(cutoff.share));
+    markerLabel.transition(ct).attr('x',cx(needed))
+      .attr('y',Math.max(12,cy(cutoff.share)-13)).text(`${cutoff.share.toFixed(1)}%`);
+    // Link the cumulative-share threshold back to the original D3 lollipop ranking.
+    dots.attr('opacity',d=>included.has(d.Country)?1:.24);
+    lines.attr('opacity',d=>included.has(d.Country)?1:.20);
+    axisX.selectAll('.tick text').attr('opacity',d=>included.has(d)?1:.38);
+  }
+  document.querySelectorAll('[data-share]').forEach(button=>button.addEventListener('click',()=>{
+    shareSlider.value=button.dataset.share;
+    render();
+  }));
+  shareSlider.addEventListener('input',render);
+  // ===== end of additional interaction =====
+  function simulatedData(){
+    return data.map(d=>({...d,simulated:d.Country===selected?Math.max(0,d.original*(1+adjustment/100)):d.original}));
+  }
+  function rankOf(sorted,country){return sorted.findIndex(d=>d.Country===country)+1;}
+  function formatSigned(p){return (p>0?'+':'')+p+'%';}
+  function selectCountry(name){selected=name;select.value=name;adjustment=0;slider.value=0;render();}
+  function render(){
+    const simulation=simulatedData();
+    simulation.sort((a,b)=> b.simulated-a.simulated || b.original-a.original || sourceOrder.get(a.Country)-sourceOrder.get(b.Country));
+    const current=simulation.find(d=>d.Country===selected);
+    const originalRank=rankOf(baseSort(data),selected);
+    const newRank=rankOf(simulation,selected);
+    const moved=originalRank-newRank;
+    const top=Math.max(12394, d3.max(simulation,d=>d.simulated));
+    y.domain([0,top*1.08]).nice();
+    x.domain(simulation.map(d=>d.Country));
+    const t = svg.transition().duration(650).ease(d3.easeCubicInOut);
+    axisX.transition(t).call(d3.axisBottom(x).tickSize(0)).selection().selectAll('text')
+      .attr('transform','translate(-5,11)rotate(-29)').style('text-anchor','end');
+    axisX.select('.domain').attr('stroke','#bbcfc0');
+    grid.transition(t).call(d3.axisLeft(y).ticks(6).tickSize(-width).tickFormat(''));
+    axisY.transition(t).call(d3.axisLeft(y).ticks(6).tickFormat(d3.format(',')));
+    lines.data(simulation,d=>d.Country).transition(t)
+      .attr('x1',d=>x(d.Country)+x.bandwidth()/2).attr('x2',d=>x(d.Country)+x.bandwidth()/2)
+      .attr('y1',d=>y(d.simulated)).attr('y2',y(0))
+      .attr('stroke',d=>d.Country===selected?'#efad66':'#b0c9bc')
+      .attr('stroke-width',d=>d.Country===selected?3:2);
+    dots.data(simulation,d=>d.Country)
+      .attr('aria-label',d=>`${d.Country}、実測値 ${fmt(d.original)}、クリックして選択`)
+      .transition(t)
+      .attr('cx',d=>x(d.Country)+x.bandwidth()/2)
+      .attr('cy',d=>y(d.simulated)).attr('r',d=>d.Country===selected?10:7)
+      .attr('fill',d=>d.Country===selected?'#ef9d4e':'#159e7b');
+    baseline.transition(t).attr('cx',x(selected)+x.bandwidth()/2).attr('cy',y(current.original))
+      .style('opacity',adjustment===0?0:1);
+    countryEl.textContent=selected;
+    selectedValueEl.textContent=fmt(Math.round(current.simulated));
+    originalValueEl.textContent=`元データ ${fmt(current.original)}`;
+    changeLabel.textContent=formatSigned(adjustment);
+    rankChange.textContent=`${originalRank}位 → ${newRank}位`;
+    rankDelta.textContent=moved>0?`${moved}ランク上昇`:moved<0?`${-moved}ランク下降`:'現状維持';
+    slider.setAttribute('aria-valuetext',formatSigned(adjustment));
+    const comparison=moved>0?'順位が上がりました':moved<0?'順位が下がりました':'順位に変化はありません';
+    insight.innerHTML=`<strong>${selected}</strong> の2017年の課題CSV値は <strong>${fmt(current.original)}</strong>。仮に <strong>${formatSigned(adjustment)}</strong> 変化させると <strong>${fmt(Math.round(current.simulated))}</strong> となり、${comparison}（<strong>${originalRank}位 → ${newRank}位</strong>）。<br>他の国は元の値のままです。`;
+    renderConcentration(simulation);
+  }
+  select.addEventListener('change',e=>selectCountry(e.target.value));
+  slider.addEventListener('input',e=>{adjustment=Number(e.target.value);render();});
+  document.querySelectorAll('[data-preset]').forEach(button=>button.addEventListener('click',()=>{
+    adjustment=Number(button.dataset.preset);slider.value=adjustment;render();
+  }));
+  document.getElementById('reset').addEventListener('click',()=>{adjustment=0;slider.value=0;render();});
+  document.getElementById('passNext').addEventListener('click',()=>{
+    const baselineValue=data.find(d=>d.Country===selected).original;
+    const current=simulatedData().sort((a,b)=>b.simulated-a.simulated);
+    const rank=rankOf(current,selected);
+    if(rank===1){adjustment=0;slider.value=0;render();return;}
+    const target=current[rank-2].simulated;
+    const needed=Math.ceil(((target+1)/baselineValue-1)*100/5)*5;
+    adjustment= Math.min(700,Math.max(-90,needed));
+    slider.value=adjustment;render();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

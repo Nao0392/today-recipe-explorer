@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>国別の武器輸出量</title>
+
+<!-- Load d3.js -->
+<script src="https://d3js.org/d3.v6.js"></script>
+
+<style>
+  body { font-family: sans-serif; margin: 16px; color: #222; }
+  #app { max-width: 1040px; }
+  svg { width: 100%; height: auto; display: block; }
+  .title { font-size: 16px; font-weight: bold; }
+  .axis-label { font-size: 12px; fill: #333; }
+
+  .controls { display: flex; gap: 8px 10px; align-items: center; margin: 4px 0 6px; flex-wrap: wrap; font-size: 13px; }
+  .controls button, .panel button {
+    border: 1px solid #69b3a2; background: #fff; color: #1f5f50;
+    padding: 4px 12px; border-radius: 14px; cursor: pointer; font-size: 13px;
+  }
+  .controls button.active, .panel button.active { background: #69b3a2; color: #fff; }
+  .controls button:hover, .panel button:hover:not(:disabled) { filter: brightness(0.95); }
+  .panel button:disabled, .panel select:disabled, .panel input:disabled { opacity: 0.45; cursor: not-allowed; }
+  .controls .sep { width: 1px; height: 18px; background: #ccc; margin: 0 4px; }
+  .controls input[type=range] { width: 180px; accent-color: #69b3a2; }
+  #topn-val { display: inline-block; min-width: 1.6em; text-align: right; font-weight: bold; }
+
+  #scale-hint { min-height: 18px; margin: 0 0 4px; }
+  #info { min-height: 22px; margin: 8px 0 4px; font-size: 14px; }
+  .note { font-size: 12px; color: #666; line-height: 1.6; }
+
+  .stem, .dot { transition: opacity 0.15s; }
+  .dot { cursor: pointer; }
+
+  /* 範囲選択(ブラシ) */
+  .brush .overlay { cursor: crosshair; }
+  .brush .selection { fill: #69b3a2; fill-opacity: 0.15; stroke: #1f5f50; stroke-width: 1px; }
+
+  /* 地図(ドラッグで移動・ホイールで拡大) */
+  #map svg { cursor: grab; }
+  #map svg:active { cursor: grabbing; }
+  .country { stroke: #fff; stroke-width: 0.4px; vector-effect: non-scaling-stroke; }
+  .country.has-data { cursor: pointer; }
+  .country.is-dimmed { opacity: 0.35; }
+  .country.is-top { stroke: #14594a; stroke-width: 1.4px; }
+  .country.is-brushed { stroke: #e8743b; stroke-width: 1.8px; }
+  .country.is-hover { stroke: #222; stroke-width: 1.6px; }
+  .country.is-selected { stroke: #e8743b; stroke-width: 2.4px; }
+
+  /* シミュレーション・累積割合のパネル */
+  .panel { border: 1px solid #d8e6e0; border-radius: 10px; padding: 12px 16px; margin: 12px 0; background: #fafdfc; }
+  .panel h2 { font-size: 15px; margin: 0 0 4px; }
+  .panel .row { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; margin: 8px 0; font-size: 13px; }
+  .panel select { padding: 4px 8px; border: 1px solid #69b3a2; border-radius: 6px; font-size: 13px; }
+  .panel input[type=range] { width: 260px; accent-color: #69b3a2; }
+  .big { font-size: 20px; font-weight: bold; color: #1f7a63; font-variant-numeric: tabular-nums; min-width: 3.4em; display: inline-block; }
+  .result { min-height: 40px; font-size: 14px; line-height: 1.7; }
+  .result .orange { color: #c45a1c; font-weight: bold; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0; }
+  .card { border: 1px solid #dbe9e3; border-radius: 8px; padding: 8px 12px; background: #fff; }
+  .card .lbl { font-size: 12px; color: #5b7a69; }
+  .card .val { font-size: 22px; font-weight: bold; color: #1f7a63; font-variant-numeric: tabular-nums; }
+  .card .sub { font-size: 11px; color: #777; }
+  .share-vis { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: start; }
+  .top-list-box { border: 1px solid #dbe9e3; border-radius: 8px; padding: 8px 12px; background: #fff; max-height: 330px; overflow-y: auto; font-size: 13px; }
+  .top-list-box h3 { font-size: 13px; margin: 0 0 6px; }
+  #top-list { margin: 0; padding-left: 24px; }
+  #top-list li { padding: 3px 0; border-bottom: 1px solid #edf3f0; }
+  #top-list li .row2 { display: flex; justify-content: space-between; gap: 6px; }
+  #top-list li strong { font-variant-numeric: tabular-nums; color: #1f7a63; }
+  .line-key { font-size: 12px; color: #555; display: flex; gap: 14px; flex-wrap: wrap; margin: 4px 0; }
+  .line-key i { display: inline-block; width: 20px; height: 0; border-top: 3px solid #0f9b76; vertical-align: middle; margin-right: 4px; }
+  .line-key i.base { border-top: 2px dashed #a5bcb0; }
+  @media (max-width: 760px) { .cards, .share-vis { grid-template-columns: 1fr; } }
+
+  #tooltip {
+    position: absolute; pointer-events: none; opacity: 0;
+    background: rgba(0, 0, 0, 0.82); color: #fff;
+    padding: 6px 10px; border-radius: 4px; font-size: 13px; line-height: 1.5;
+    transition: opacity 0.12s;
+  }
+</style>
+
+<div id="app">
+  <div class="controls">
+    <span>並び替え:</span>
+    <button data-sort="value" class="active">値の大きい順</button>
+    <button data-sort="name">国名順(A→Z)</button>
+    <span class="sep"></span>
+    <label for="topn">表示件数(上位):</label>
+    <input type="range" id="topn" min="3" max="36" step="1" value="36">
+    <span><span id="topn-val">36</span>か国</span>
+    <span class="sep"></span>
+    <button id="log-toggle" aria-pressed="false">対数スケール: OFF</button>
+    <button id="reset">リセット</button>
+  </div>
+  <div id="scale-hint" class="note"></div>
+  <div id="chart"></div>
+
+  <!-- ① 仮想変化率シミュレーション -->
+  <section class="panel" id="whatif">
+    <h2>① 仮想変化率シミュレーション(もし輸出量が変わったら?)</h2>
+    <div class="note">国を選び(グラフの点・地図・下のメニュー)、輸出量を仮想的に増減させると、順位・グラフ・地図の色・下の累積割合がすべて再計算されます。他の国は元の値のままです。</div>
+    <div class="row">
+      <label>国: <select id="whatif-country" aria-label="シミュレーションする国"></select></label>
+      <label for="adj">仮想変化率:</label>
+      <input type="range" id="adj" min="-90" max="700" step="5" value="0" disabled>
+      <span class="big" id="adj-val">+0%</span>
+    </div>
+    <div class="row">
+      <button data-preset="-50" disabled>-50%</button>
+      <button data-preset="100" disabled>+100%</button>
+      <button data-preset="300" disabled>+300%</button>
+      <button id="pass-next" disabled>↑ 一つ上の国を追い越す</button>
+      <button id="adj-reset" disabled>変化率を0に戻す</button>
+    </div>
+    <div class="result" id="whatif-result"></div>
+  </section>
+
+  <div id="info"></div>
+  <div id="map"></div>
+
+  <!-- ② 累積割合 -->
+  <section class="panel" id="share-panel">
+    <h2>② 上位何か国で輸出量の何%を占める?</h2>
+    <div class="row">
+      <label for="share">目標とする累積割合:</label>
+      <input type="range" id="share" min="30" max="95" step="5" value="80">
+      <span class="big" id="share-val">80%</span>
+      <button data-share="50">50%</button>
+      <button data-share="70">70%</button>
+      <button data-share="80">80%</button>
+      <button data-share="90">90%</button>
+      <button id="share-link" aria-pressed="false">グラフ・地図に反映: OFF</button>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="lbl">目標に達する上位の国数</div><div class="val" id="needed">-</div><div class="sub" id="needed-sub"></div></div>
+      <div class="card"><div class="lbl">その国数での実際の累積割合</div><div class="val" id="achieved">-</div><div class="sub">指定した目標を初めて超える割合</div></div>
+      <div class="card"><div class="lbl">データ内の輸出量合計</div><div class="val" id="total">-</div><div class="sub">SIPRI TIV・このデータの合計(世界全体ではない)</div></div>
+    </div>
+    <div class="line-key"><span><i></i>現在の累積割合</span><span><i class="base"></i>元の2017年データ</span><span>オレンジの点: 目標到達地点 / 点にカーソルで詳細</span></div>
+    <div class="share-vis">
+      <div id="share-chart"></div>
+      <div class="top-list-box"><h3 id="list-title"></h3><ol id="top-list"></ol></div>
+    </div>
+    <p id="share-insight"></p>
+    <p class="note">この割合は、このデータに含まれる国(下の注記の国数)の合計を100%として計算しています。世界全体の武器輸出シェアではありません。「仮想変化率」を動かすと累積曲線も再計算されます。</p>
+  </section>
+
+  <p class="note" id="note"></p>
+</div>
+<div id="tooltip"></div>
+
+<script>
+
+const TITLE = "国別の武器輸出量(2017年)";
+const VALUE_LABEL = "武器輸出量 (SIPRI TIV)";
+const NOTE = "出典: SIPRI Arms Transfers Database(Data to Vizで公開されている2017年の上位50輸出国のデータ)。" +
+             "値が空欄の行(旧国名など)と「Unknown supplier(s)」「Others」は除いています。" +
+             "地図の色が濃いほど輸出量が大きい(平方根スケール)。仮想変化率は授業用の仮想計算で、実際の記録を書き換えるものではありません。";
+
+const CSV_URL = "https://raw.githubusercontent.com/holtzy/data_to_viz/master/Example_dataset/7_OneCatOneNum.csv";
+const GEO_URL = "https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson";
+
+// CSVの国名 → 地図データ(world.geojson)のISO3コード(36か国)
+const ISO = {
+  "United States": "USA", "Russia": "RUS", "Germany (FRG)": "DEU", "France": "FRA",
+  "United Kingdom": "GBR", "China": "CHN", "Netherlands": "NLD", "Italy": "ITA",
+  "Israel": "ISR", "Ukraine": "UKR", "Spain": "ESP", "Sweden": "SWE",
+  "Switzerland": "CHE", "Canada": "CAN", "South Korea": "KOR", "Belarus": "BLR",
+  "Norway": "NOR", "Turkey": "TUR", "South Africa": "ZAF", "Czech Republic": "CZE",
+  "Poland": "POL", "Belgium": "BEL", "Australia": "AUS", "Brazil": "BRA",
+  "Finland": "FIN", "Japan": "JPN", "Slovakia": "SVK", "Denmark": "DNK",
+  "Austria": "AUT", "Jordan": "JOR", "UAE": "ARE", "Indonesia": "IDN",
+  "Iran": "IRN", "Portugal": "PRT", "India": "IND", "Serbia": "SRB"
+};
+
+const COLOR_BASE = "#69b3a2";
+const COLOR_SELECT = "#e8743b";
+const COLOR_NODATA = "#e2e2e2";
+const fmt = d3.format(",");
+const W = 1000;          // 棒グラフと地図で共通の横幅
+const CH_H = 460;        // 棒グラフの高さ
+const MAP_H = 500;       // 地図の高さ
+
+// 仮想変化率の範囲(%)
+const ADJ_MIN = -90, ADJ_MAX = 700;
+
+// 地図のズーム設定
+const CLICK_ZOOM_MAX = 3;     // クリックしたときの最大拡大率(大きいほど寄る)
+const CLICK_ZOOM_FILL = 0.5;  // クリックしたとき、国が画面に占める割合の目安(大きい国向け)
+const ZOOM_MAX = 12;          // ホイールで拡大できる上限
+
+const formatSigned = p => (p >= 0 ? "+" : "") + p + "%";
+
+Promise.all([d3.csv(CSV_URL), d3.json(GEO_URL)]).then(function([rawData, world]) {
+
+  // ---------- データ準備 ----------
+  // 値が空の行と、ISOコードのない行(Unknown supplier(s), Others)を除外
+  // Value = 元データ、sim = 仮想変化率を反映した値(選択中の国だけ変わる)
+  const data = rawData
+    .map(d => ({Country: d.Country, Value: d.Value === "" ? NaN : +d.Value, iso: ISO[d.Country]}))
+    .filter(d => d.iso && Number.isFinite(d.Value));
+  data.sort((a, b) => d3.descending(a.Value, b.Value));
+  data.forEach(d => { d.sim = d.Value; });
+
+  const byIso = new Map(data.map(d => [d.iso, d]));
+  const rank0 = new Map(data.map((d, i) => [d.iso, i + 1]));   // 元データでの順位(表示件数の判定に使う)
+  const maxValue = d3.max(data, d => d.Value);
+  const total0 = d3.sum(data, d => d.Value);
+
+  // ---------- 状態 ----------
+  let hovered = null;        // ホバー中の国(ISO3)
+  let selected = null;       // クリックで選択中の国(ISO3)= 仮想変化率の対象
+  let adjustment = 0;        // 選択中の国の仮想変化率(%)
+  let whatifMsg = "";        // 「一つ上を追い越す」が届かなかったときの説明
+  let brushed = null;        // 範囲選択中の国の集合(ISO3)。選択なしならnull
+  let shareGoal = 80;        // 目標とする累積割合(%)
+  let shareOn = false;       // 累積割合の上位国をグラフ・地図に反映するか
+  let zoomK = 1;             // 地図の現在の拡大率
+  let topN = data.length;    // 表示する上位件数(スライダー。元データの上位N件)
+  let logScale = false;      // 対数スケールかどうか(ボタン)
+  let sortMode = "value";    // "value" | "name"
+  let stems, circles;        // 描画のたびに作り直す選択範囲
+
+  // 仮想値を反映した計算結果(recompute()で更新)
+  let bySim = [], rankNow = new Map(), totalSim = total0, cum = [], shareSet = new Set(), shareCut = null;
+
+  const isVisible = iso => rank0.has(iso) && rank0.get(iso) <= topN;
+
+  // 累積割合 [{rank, share(%), ...}]。rank=0 が原点
+  function cumulative(sorted, key) {
+    const total = d3.sum(sorted, d => d[key]);
+    let acc = 0;
+    return [{rank: 0, share: 0}].concat(sorted.map((d, i) => {
+      acc += d[key];
+      return {rank: i + 1, share: total > 0 ? acc / total * 100 : 0, iso: d.iso, country: d.Country, value: d[key]};
+    }));
+  }
+  const baseCum = cumulative(data, "Value");   // 元データの累積(比較用)
+  const reach = (c, goal) => c.slice(1).find(v => v.share + 1e-9 >= goal) || c[c.length - 1];
+
+  // 仮想値・順位・累積割合を計算し直す
+  function recompute() {
+    data.forEach(d => {
+      d.sim = d.iso === selected ? Math.max(0, d.Value * (1 + adjustment / 100)) : d.Value;
+    });
+    bySim = [...data].sort((a, b) => d3.descending(a.sim, b.sim) || d3.descending(a.Value, b.Value));
+    rankNow = new Map(bySim.map((d, i) => [d.iso, i + 1]));
+    totalSim = d3.sum(data, d => d.sim);
+    cum = cumulative(bySim, "sim");
+    shareCut = reach(cum, shareGoal);
+    shareSet = new Set(bySim.slice(0, shareCut.rank).map(d => d.iso));
+  }
+  recompute();
+
+  d3.select("#note").text(`${NOTE}(データ: ${data.length}か国)`);
+
+  // ---------- 棒グラフ(lollipop・縦向き) ----------
+  const margin = {top: 50, right: 30, bottom: 110, left: 80},
+      cw = W - margin.left - margin.right,
+      ch = CH_H - margin.top - margin.bottom;
+
+  const g = d3.select("#chart")
+    .append("svg")
+      .attr("viewBox", `0 0 ${W} ${CH_H}`)
+    .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  const x = d3.scaleBand().range([0, cw]).padding(1);
+
+  // 線形と対数の2つのスケールを用意して切り替える(対数は基準を1にする)
+  // 仮想変化率で最大値が変わるので、domainはrender()のたびに更新する
+  const yLin = d3.scaleLinear().domain([0, maxValue]).nice().range([ch, 0]);
+  const yLog = d3.scaleLog().domain([1, maxValue * 1.3]).range([ch, 0]);
+  let y = yLin;
+  let lastTop = maxValue;
+  const yPos = v => y(logScale ? Math.max(1, v) : v);
+
+  const xAxis = g.append("g").attr("transform", `translate(0, ${ch})`);
+  const yAxisG = g.append("g");
+
+  // 範囲選択(ブラシ)。点や線より下の層に置くので、点のホバー・クリックは今までどおり効く
+  const brush = d3.brushX()
+    .extent([[0, 0], [cw, ch]])
+    .on("brush end", onBrush);
+  const brushG = g.append("g").attr("class", "brush").call(brush);
+
+  // 仮想変化率を掛ける前の「元の値」の位置を示す白抜きの輪
+  const ghost = g.append("circle")
+    .attr("class", "ghost")
+    .attr("r", 9)
+    .attr("fill", "none")
+    .attr("stroke", COLOR_SELECT)
+    .attr("stroke-width", 2)
+    .style("pointer-events", "none")
+    .style("opacity", 0);
+  let ghostShown = false;
+
+  function makeYAxis() {
+    const ax = d3.axisLeft(y);
+    if (logScale) {
+      ax.tickValues([1, 10, 100, 1000, 10000, 100000].filter(v => v <= y.domain()[1])).tickFormat(fmt);
+    } else {
+      ax.ticks(6).tickFormat(fmt);
+    }
+    return ax;
+  }
+
+  function drawAxes(t, redrawY) {
+    xAxis.transition(t).call(d3.axisBottom(x));
+    // 新しく出てきた目盛りにも斜めのラベル設定を当てる
+    xAxis.selectAll("text")
+      .attr("transform", "translate(-10,0)rotate(-45)")
+      .style("text-anchor", "end");
+    // y軸はスケールが変わったときだけ描き直す(スライダー操作中は不要)
+    if (redrawY) yAxisG.transition(t).call(makeYAxis());
+  }
+
+  // タイトル・軸ラベル
+  g.append("text")
+    .attr("class", "title")
+    .attr("x", -margin.left + 10)
+    .attr("y", -margin.top / 2 - 4)
+    .text(TITLE);
+
+  const yLabel = g.append("text")
+    .attr("class", "axis-label")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -ch / 2)
+    .attr("y", -margin.left + 16)
+    .attr("text-anchor", "middle")
+    .text(VALUE_LABEL);
+
+  // ---------- 世界地図 ----------
+  const projection = d3.geoNaturalEarth1().fitSize([W, MAP_H], {type: "Sphere"});
+  const path = d3.geoPath(projection);
+
+  const msvg = d3.select("#map").append("svg").attr("viewBox", `0 0 ${W} ${MAP_H}`);
+  const mg = msvg.append("g");
+
+  // 海(クリックで選択解除)
+  mg.append("path")
+    .datum({type: "Sphere"})
+    .attr("d", path)
+    .attr("fill", "#eaf3f8")
+    .on("click", clearSelection);
+
+  const interp = d3.interpolateRgb("#cfe8e0", "#14594a");
+  // 仮想変化率で最大値を超えることがあるので、色は上限で頭打ちにする
+  const color = d3.scaleSequentialSqrt([0, maxValue], t => interp(t)).clamp(true);
+
+  const features = world.features.filter(f => f.id !== "ATA");
+  const featureByIso = new Map(features.map(f => [f.id, f]));
+
+  // 地図に対応する国がない場合は気づけるようにする
+  data.forEach(d => { if (!featureByIso.has(d.iso)) console.warn("地図に国が見つかりません:", d.Country, d.iso); });
+
+  const countries = mg.selectAll(".country")
+    .data(features)
+    .join("path")
+      .attr("class", "country")
+      .attr("d", path)
+      .attr("fill", COLOR_NODATA);
+
+  // 色・ホバー・選択の更新対象はデータのある国だけ(177か国すべてを毎回触らない)
+  const dataCountries = countries.filter(d => byIso.has(d.id));
+
+  // 小さい国でも位置が分かるように、ホバー・選択中の国に目印のリングを出す
+  const ring = mg.append("circle")
+    .attr("fill", "none")
+    .attr("stroke-width", 2)
+    .attr("r", 12)
+    .style("vector-effect", "non-scaling-stroke")
+    .style("pointer-events", "none")
+    .style("opacity", 0);
+
+  // ホイールで拡大・縮小、ドラッグで移動(クリック選択のズームも同じ仕組みで動かす)
+  const zoomExtent = [[0, 0], [W, MAP_H]];
+  const zoom = d3.zoom()
+    .scaleExtent([1, ZOOM_MAX])
+    .extent(zoomExtent)
+    .translateExtent(zoomExtent)
+    .on("zoom", event => {
+      mg.attr("transform", event.transform);
+      zoomK = event.transform.k;
+      ring.attr("r", 12 / zoomK);   // 拡大しても目印の大きさは画面上で一定
+    })
+    .on("start.hover", () => clearHover());   // 拡大・移動の開始時は、動く地図の上に古いホバー表示を残さない
+  msvg.call(zoom).on("dblclick.zoom", null);   // ダブルクリックでの拡大は無効(クリック選択と干渉するため)
+
+  function resetView() {
+    msvg.transition().duration(700).call(zoom.transform, d3.zoomIdentity);
+  }
+
+  // 凡例(少 → 多)
+  const lg = msvg.append("defs").append("linearGradient").attr("id", "legend-grad");
+  d3.range(0, 1.01, 0.1).forEach(t => {
+    lg.append("stop").attr("offset", `${t * 100}%`).attr("stop-color", interp(t));
+  });
+  const legend = msvg.append("g").attr("transform", `translate(16, ${MAP_H - 30})`);
+  legend.append("rect").attr("x", 24).attr("width", 120).attr("height", 10).attr("fill", "url(#legend-grad)").attr("stroke", "#999").attr("stroke-width", 0.5);
+  legend.append("text").attr("y", 9).attr("font-size", 11).text("少");
+  legend.append("text").attr("x", 150).attr("y", 9).attr("font-size", 11).text("多");
+
+  // 表示件数・仮想値に応じて地図の色を更新(件数外の国は灰色に戻す)
+  function updateMap(dur) {
+    dataCountries
+      .classed("has-data", d => isVisible(d.id))
+      .transition().duration(dur)
+      .attr("fill", d => isVisible(d.id) ? color(byIso.get(d.id).sim) : COLOR_NODATA);
+  }
+
+  // ---------- ツールチップ ----------
+  const tip = d3.select("#tooltip");
+  function placeTip(event) {
+    tip.style("opacity", 1)
+      .style("left", (event.pageX + 14) + "px")
+      .style("top", (event.pageY - 10) + "px");
+  }
+  function showTip(event, iso) {
+    const d = byIso.get(iso);
+    const changed = iso === selected && adjustment !== 0;
+    const rk = rankNow.get(iso);
+    tip.html(`<strong>${d.Country}</strong><br>` +
+        `輸出量: ${fmt(Math.round(d.sim))}${changed ? `(元 ${fmt(d.Value)})` : ""}<br>` +
+        `${rk}位 / ${data.length}か国${rk !== rank0.get(iso) ? `(元 ${rank0.get(iso)}位)` : ""}<br>` +
+        `全体の ${(d.sim / totalSim * 100).toFixed(1)}%`);
+    placeTip(event);
+  }
+  function hideTip() { tip.style("opacity", 0); }
+
+  // ---------- 連動(ハイライト・選択・ズーム・範囲選択) ----------
+  // 国の最大のポリゴン(本土)を返す(飛び地や海外領土に引っ張られないように)
+  const mainPartCache = new Map();
+  function mainPart(feature) {
+    if (feature.geometry.type !== "MultiPolygon") return feature;
+    if (mainPartCache.has(feature.id)) return mainPartCache.get(feature.id);
+    const area = p => { const [[a, b], [c, e]] = path.bounds(p); return (c - a) * (e - b); };
+    const best = feature.geometry.coordinates
+      .map(c => ({type: "Polygon", coordinates: c}))
+      .reduce((p, q) => area(p) > area(q) ? p : q);
+    mainPartCache.set(feature.id, best);
+    return best;
+  }
+
+  function refresh() {
+    // ホバー中はその国だけ、そうでなければ範囲選択(なければ累積割合の上位国)だけを目立たせる
+    const focusSet = brushed || (shareOn ? shareSet : null);
+    const emphasized = iso => hovered ? iso === hovered : (focusSet ? focusSet.has(iso) : true);
+    stems
+      .attr("stroke", d => d.iso === selected ? COLOR_SELECT : "grey")
+      .attr("opacity", d => emphasized(d.iso) ? 1 : 0.2);
+    circles
+      .attr("fill", d => d.iso === selected ? COLOR_SELECT : COLOR_BASE)
+      .attr("opacity", d => emphasized(d.iso) ? 1 : 0.25)
+      .attr("r", d => (d.iso === hovered || d.iso === selected) ? 8
+                      : (focusSet && focusSet.has(d.iso)) ? 7 : 5);
+    dataCountries
+      .classed("is-hover", d => d.id === hovered)
+      .classed("is-selected", d => d.id === selected)
+      .classed("is-brushed", d => !!brushed && brushed.has(d.id))
+      .classed("is-top", d => !brushed && shareOn && shareSet.has(d.id))
+      .classed("is-dimmed", d => !!focusSet && isVisible(d.id) && !focusSet.has(d.id));
+    dataCountries.filter(".is-hover, .is-selected, .is-brushed, .is-top").raise();
+
+    // 目印のリング
+    const iso = hovered || selected;
+    if (iso && featureByIso.has(iso)) {
+      const [cx, cy] = path.centroid(mainPart(featureByIso.get(iso)));
+      ring.attr("cx", cx).attr("cy", cy).attr("r", 12 / zoomK)
+        .attr("stroke", iso === selected && !hovered ? COLOR_SELECT : "#222")
+        .style("opacity", 1).raise();
+    } else {
+      ring.style("opacity", 0);
+    }
+
+    const info = d3.select("#info");
+    if (selected) {
+      const d = byIso.get(selected);
+      info.html(`選択中: <strong>${d.Country}</strong>(${fmt(Math.round(d.sim))} / ${rankNow.get(selected)}位)— もう一度クリックか「リセット」で戻ります`);
+    } else if (brushed) {
+      const items = data.filter(d => brushed.has(d.iso));
+      const names = items.map(d => d.Country);
+      const detail = items.length
+        ? `(${names.slice(0, 8).join("、")}${names.length > 8 ? " ほか" : ""}・合計 ${fmt(Math.round(d3.sum(items, d => d.sim)))}・全体の ${(d3.sum(items, d => d.sim) / totalSim * 100).toFixed(1)}%)`
+        : "";
+      info.html(`範囲選択: <strong>${items.length}か国</strong>${detail} — グラフの空白をクリックで解除`);
+    } else if (shareOn) {
+      info.html(`累積割合 ${shareGoal}% に必要な上位 <strong>${shareCut.rank}か国</strong>を強調中(②の「グラフ・地図に反映」で解除)`);
+    } else {
+      info.text("点または地図の国をクリック: 選択して拡大・仮想変化率を試せます / グラフ上をドラッグ: 範囲選択 / 地図: ホイールで拡大・ドラッグで移動");
+    }
+  }
+
+  function setHover(iso) {
+    if (iso && !isVisible(iso)) return;
+    hovered = iso;
+    refresh();
+  }
+
+  // クリックした国へ、控えめな倍率でズームする
+  function zoomTo(feature) {
+    const [[x0, y0], [x1, y1]] = path.bounds(mainPart(feature));
+    const fit = CLICK_ZOOM_FILL / Math.max((x1 - x0) / W, (y1 - y0) / MAP_H);
+    const k = Math.max(1, Math.min(CLICK_ZOOM_MAX, fit));
+    const tx = W / 2 - k * (x0 + x1) / 2;
+    const ty = MAP_H / 2 - k * (y0 + y1) / 2;
+    // 地図の端の国でも、範囲外にはみ出さないよう補正する
+    const target = zoom.constrain()(d3.zoomIdentity.translate(tx, ty).scale(k), zoomExtent, zoomExtent);
+    msvg.transition().duration(900).call(zoom.transform, target);
+  }
+
+  // 国を選ぶ(= 仮想変化率の対象にする)。変化率は0に戻る
+  function select(iso) {
+    const hadChange = adjustment !== 0;
+    selected = iso;
+    adjustment = 0;
+    whatifMsg = "";
+    if (featureByIso.has(iso)) zoomTo(featureByIso.get(iso));
+    if (hadChange) render();
+    else { refresh(); updateWhatIfUI(); }
+  }
+
+  // 選択だけを解除して地図を元の縮尺に戻す(仮想変化率も元に戻る)
+  function deselect() {
+    const hadChange = adjustment !== 0;
+    selected = null;
+    adjustment = 0;
+    whatifMsg = "";
+    if (hadChange) render();
+    else { refresh(); updateWhatIfUI(); }
+    resetView();
+  }
+
+  // 選択・仮想変化率・地図の拡大・範囲選択・累積割合の反映をすべて解除
+  function resetAll() {
+    shareOn = false;
+    syncShareButton();
+    deselect();
+    if (brushed) brushG.call(brush.move, null);
+  }
+
+  function toggle(iso) { selected === iso ? deselect() : select(iso); }
+
+  function clearSelection() { if (selected) deselect(); }
+
+  // ホバーの強調・ツールチップ・目印のリングを消す
+  function clearHover() {
+    hideTip();
+    if (hovered) { hovered = null; refresh(); }
+  }
+
+  // Escapeキー: ホバー表示を消し、選択中なら選択も解除する
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    clearHover();
+    clearSelection();
+  });
+
+  // カーソルがグラフや地図の外に出たら、ホバー表示は必ず消す(mouseleaveの取りこぼし対策)
+  msvg.on("mouseleave.hover", clearHover);
+  d3.select("#chart svg").on("mouseleave.hover", clearHover);
+
+  // 範囲選択(ブラシ): ドラッグ範囲に入った国を地図でも同時に強調する
+  function onBrush(event) {
+    if (!circles) return;
+    const s = event.selection;
+    if (!s) {
+      brushed = null;
+    } else {
+      const [b0, b1] = s;
+      brushed = new Set(circles.data()
+        .filter(d => { const cx = x(d.Country); return cx >= b0 && cx <= b1; })
+        .map(d => d.iso));
+    }
+    refresh();
+  }
+
+  // 棒グラフ側のイベント(線と点の両方に付ける)
+  function bindChart(sel) {
+    sel
+      .on("mouseenter", (event, d) => { setHover(d.iso); showTip(event, d.iso); })
+      .on("mousemove", (event, d) => showTip(event, d.iso))
+      .on("mouseleave", () => { setHover(null); hideTip(); })
+      .on("click", (event, d) => { clearHover(); toggle(d.iso); });
+  }
+
+  // 地図側のイベント(表示中の国のみ反応する)
+  dataCountries
+    .on("mouseenter", (event, d) => { if (!isVisible(d.id)) return; setHover(d.id); showTip(event, d.id); })
+    .on("mousemove", (event, d) => { if (isVisible(d.id)) showTip(event, d.id); })
+    .on("mouseleave", () => { setHover(null); hideTip(); })
+    .on("click", (event, d) => { clearHover(); isVisible(d.id) ? toggle(d.id) : clearSelection(); });
+
+  // 地図上の関係ない場所(海・データのない国・表示件数外の国)をクリックしたら選択を解除する。
+  // 何も選んでいないときは何もしない(ホイールで拡大した表示を勝手に戻さない)。
+  // ドラッグで地図を動かした直後のクリックは、d3.zoomが打ち消してくれる。
+  countries.filter(d => !byIso.has(d.id)).on("click", () => { clearHover(); clearSelection(); });
+
+  // ---------- 描画(表示件数・スケール・並び順・仮想変化率が変わるたびに呼ぶ) ----------
+  // dur: アニメーションの長さ(ms)。redrawY: y軸を描き直すか
+  function render(dur = 700, redrawY = true) {
+    // 点の位置が変わるので、範囲選択は解除する
+    if (brushed) {
+      brushed = null;
+      brushG.call(brush.move, null);
+    }
+    // 選択中の国が表示件数の外に出たら選択(と仮想変化率)を解除
+    if (selected && !isVisible(selected)) {
+      selected = null;
+      adjustment = 0;
+      whatifMsg = "";
+      resetView();
+    }
+    hovered = null;
+    hideTip();
+
+    recompute();
+
+    // 仮想変化率でUSを超える値になったときだけ、y軸の上限を伸ばす
+    const topVal = Math.max(maxValue, d3.max(data, d => d.sim));
+    if (topVal !== lastTop) {
+      yLin.domain([0, topVal]).nice();
+      yLog.domain([1, topVal * 1.3]);
+      lastTop = topVal;
+      redrawY = true;
+    }
+
+    const vis = data.filter(d => isVisible(d.iso));
+    const ordered = [...vis].sort(sortMode === "name"
+      ? (a, b) => d3.ascending(a.Country, b.Country)
+      : (a, b) => d3.descending(a.sim, b.sim) || d3.descending(a.Value, b.Value));
+    x.domain(ordered.map(d => d.Country));
+    y = logScale ? yLog : yLin;
+
+    const t = d3.transition().duration(dur);
+
+    // 線: 追加された国は底から伸び、外れた国は底へ縮んで消える
+    stems = g.selectAll(".stem")
+      .data(vis, d => d.Country)
+      .join(
+        enter => enter.append("line")
+          .attr("class", "stem")
+          .attr("stroke", "grey")
+          .attr("x1", d => x(d.Country))
+          .attr("x2", d => x(d.Country))
+          .attr("y1", ch)
+          .attr("y2", ch)
+          .call(bindChart),
+        update => update,
+        exit => exit.transition(t).attr("y1", ch).remove()
+      );
+    stems.transition(t)
+      .attr("x1", d => x(d.Country))
+      .attr("x2", d => x(d.Country))
+      .attr("y1", d => yPos(d.sim))
+      .attr("y2", ch);
+
+    // 点
+    circles = g.selectAll(".dot")
+      .data(vis, d => d.Country)
+      .join(
+        enter => enter.append("circle")
+          .attr("class", "dot")
+          .attr("r", 5)
+          .attr("fill", COLOR_BASE)
+          .attr("stroke", "black")
+          .attr("cx", d => x(d.Country))
+          .attr("cy", ch)
+          .call(bindChart),
+        update => update,
+        exit => exit.transition(t).attr("cy", ch).attr("r", 0).remove()
+      );
+    circles.transition(t)
+      .attr("cx", d => x(d.Country))
+      .attr("cy", d => yPos(d.sim));
+
+    // 選択中の国の「元の値」の位置に白抜きの輪を残す
+    if (selected && adjustment !== 0) {
+      const d = byIso.get(selected);
+      if (!ghostShown) ghost.attr("cx", x(d.Country)).attr("cy", yPos(d.Value));
+      ghost.raise().transition(t)
+        .attr("cx", x(d.Country)).attr("cy", yPos(d.Value)).style("opacity", 1);
+      ghostShown = true;
+    } else {
+      ghost.transition(t).style("opacity", 0);
+      ghostShown = false;
+    }
+
+    drawAxes(t, redrawY);
+    yLabel.text(logScale ? `${VALUE_LABEL}(対数スケール)` : VALUE_LABEL);
+    updateMap(dur);
+    refresh();
+    updateWhatIfUI();
+    renderShare(dur);
+  }
+
+  // ---------- ① 仮想変化率のUI ----------
+  const adjSlider = d3.select("#adj").attr("min", ADJ_MIN).attr("max", ADJ_MAX);
+  const whatifSelect = d3.select("#whatif-country");
+  whatifSelect.append("option").attr("value", "").text("(国を選んでください)");
+  whatifSelect.selectAll("option.c").data(data).join("option")
+    .attr("class", "c").attr("value", d => d.iso).text(d => `${rank0.get(d.iso)}. ${d.Country}`);
+
+  function updateWhatIfUI() {
+    const has = !!selected;
+    whatifSelect.property("value", selected || "");
+    adjSlider.property("disabled", !has).property("value", adjustment);
+    d3.selectAll("#whatif button").property("disabled", !has);
+    d3.select("#adj-val").text(formatSigned(adjustment));
+    const box = d3.select("#whatif-result");
+    if (!has) {
+      box.html("グラフの点・地図・上のメニューで国を選ぶと、変化率を動かせます。");
+      return;
+    }
+    const d = byIso.get(selected);
+    const r0 = rank0.get(selected), r1 = rankNow.get(selected), moved = r0 - r1;
+    const verdict = moved > 0 ? `${moved}ランク上昇` : moved < 0 ? `${-moved}ランク下降` : "順位は変わらず";
+    box.html(
+      `<strong>${d.Country}</strong>: 元の値 ${fmt(d.Value)} → 仮想値 <span class="orange">${fmt(Math.round(d.sim))}</span>(${formatSigned(adjustment)})<br>` +
+      `順位: ${r0}位 → <span class="orange">${r1}位</span>(${verdict}) / ` +
+      `全体に占める割合: ${(d.Value / total0 * 100).toFixed(1)}% → ${(d.sim / totalSim * 100).toFixed(1)}%` +
+      (whatifMsg ? `<br><span class="orange">${whatifMsg}</span>` : "")
+    );
+  }
+
+  // 変化率の変更は1フレームに1回だけ描画する(スライダーのドラッグ中に追従させるため)
+  let renderQueued = false;
+  function scheduleRender(dur = 150, redrawY = false) {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      render(dur, redrawY);
+    });
+  }
+
+  function setAdjustment(v, animate) {
+    if (!selected) return;
+    adjustment = Math.max(ADJ_MIN, Math.min(ADJ_MAX, v));
+    whatifMsg = "";
+    if (animate) render(); else scheduleRender();
+  }
+
+  whatifSelect.on("change", function() {
+    this.value ? select(this.value) : deselect();
+  });
+  adjSlider.on("input", function() { setAdjustment(+this.value, false); });
+  d3.selectAll("#whatif button[data-preset]").on("click", function() { setAdjustment(+this.dataset.preset, true); });
+  d3.select("#adj-reset").on("click", () => setAdjustment(0, true));
+
+  // 「一つ上の国を追い越す」: 1つ上の国の値を超える最小の変化率(5%刻み)にする
+  d3.select("#pass-next").on("click", () => {
+    if (!selected) return;
+    const base = byIso.get(selected).Value;
+    const idx = rankNow.get(selected);
+    if (idx === 1) {
+      whatifMsg = "すでに1位です。";
+      updateWhatIfUI();
+      return;
+    }
+    const target = bySim[idx - 2].sim;
+    const needed = Math.ceil(((target + 1) / base - 1) * 100 / 5) * 5;
+    adjustment = Math.max(ADJ_MIN, Math.min(ADJ_MAX, needed));
+    whatifMsg = needed > ADJ_MAX
+      ? `追い越すには ${formatSigned(needed)} が必要ですが、上限は ${formatSigned(ADJ_MAX)} です。`
+      : "";
+    render();
+  });
+
+  // ---------- ② 累積割合(上位何か国で何%) ----------
+  const sOuterW = 700, sOuterH = 330;
+  const sm = {top: 20, right: 30, bottom: 52, left: 55};
+  const sw = sOuterW - sm.left - sm.right, sh = sOuterH - sm.top - sm.bottom;
+  const ssvg = d3.select("#share-chart").append("svg")
+    .attr("viewBox", `0 0 ${sOuterW} ${sOuterH}`)
+    .append("g").attr("transform", `translate(${sm.left},${sm.top})`);
+  const sx = d3.scaleLinear().domain([0, data.length]).range([0, sw]);
+  const sy = d3.scaleLinear().domain([0, 100]).range([sh, 0]);
+
+  ssvg.append("g").attr("class", "grid")
+    .call(d3.axisLeft(sy).ticks(5).tickSize(-sw).tickFormat(""))
+    .call(gg => { gg.select(".domain").remove(); gg.selectAll("line").attr("stroke", "#e5ede8").attr("stroke-dasharray", "3 4"); });
+  ssvg.append("g").attr("transform", `translate(0,${sh})`)
+    .call(d3.axisBottom(sx).ticks(9).tickFormat(d3.format("d")));
+  ssvg.append("g").call(d3.axisLeft(sy).ticks(5).tickFormat(d => d + "%"));
+  ssvg.append("text").attr("x", sw / 2).attr("y", sh + 42).attr("text-anchor", "middle").attr("class", "axis-label").text("上位の国数(か国)");
+  ssvg.append("text").attr("transform", "rotate(-90)").attr("x", -sh / 2).attr("y", -40).attr("text-anchor", "middle").attr("class", "axis-label").text("累積割合(%)");
+
+  const cumLine = d3.line().x(d => sx(d.rank)).y(d => sy(d.share)).curve(d3.curveMonotoneX);
+  const cumArea = d3.area().x(d => sx(d.rank)).y0(sy(0)).y1(d => sy(d.share)).curve(d3.curveMonotoneX);
+
+  const guide = ssvg.append("line").attr("stroke", "#f3a74b").attr("stroke-width", 1.4).attr("stroke-dasharray", "6 5");
+  const guideLabel = ssvg.append("text").attr("font-size", 11).attr("fill", "#b77829").attr("x", sw - 3).attr("text-anchor", "end");
+  const areaPath = ssvg.append("path").attr("fill", "rgba(17,160,119,.10)");
+  ssvg.append("path").attr("fill", "none").attr("stroke", "#a5bcb0").attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+    .attr("d", cumLine(baseCum));
+  const simPath = ssvg.append("path").attr("fill", "none").attr("stroke", "#0f9b76").attr("stroke-width", 3);
+  const shareDots = ssvg.append("g").selectAll("circle").data(baseCum.slice(1), d => d.rank).join("circle")
+    .attr("class", "share-dot")
+    .attr("r", 4.5).attr("fill", "#0e9c74").attr("stroke", "#fff").attr("stroke-width", 1.4)
+    .attr("cx", d => sx(d.rank)).attr("cy", d => sy(d.share))
+    .style("cursor", "pointer")
+    .on("mouseenter", (event, d) => { hoverShare(d.iso); })
+    .on("mousemove", (event, d) => {
+      tip.html(`上位<strong>${d.rank}か国</strong>(${d.country} まで)<br>累積 ${d.share.toFixed(1)}%`);
+      placeTip(event);
+    })
+    .on("mouseleave", () => { hoverShare(null); hideTip(); });
+  const shareMarker = ssvg.append("circle").attr("r", 8).attr("fill", "#efaa50").attr("stroke", "#fff").attr("stroke-width", 2.5)
+    .style("pointer-events", "none");
+  const shareMarkerLabel = ssvg.append("text").attr("font-size", 12).attr("font-weight", "bold").attr("fill", "#b77728").attr("text-anchor", "middle");
+
+  // 累積グラフの点にカーソルを乗せると、その国をグラフ・地図でも強調する
+  function hoverShare(iso) {
+    if (iso && !isVisible(iso)) return;
+    hovered = iso;
+    refresh();
+  }
+
+  function renderShare(dur) {
+    const goal = shareGoal, needed = shareCut.rank, achieved = shareCut.share;
+    const ct = d3.transition().duration(dur);
+
+    d3.select("#share-val").text(goal + "%");
+    d3.select("#needed").text(needed + "か国");
+    d3.select("#needed-sub").text(`全${data.length}か国のうち上位${needed}か国`);
+    d3.select("#achieved").text(achieved.toFixed(1) + "%");
+    d3.select("#total").text(fmt(Math.round(totalSim)));
+
+    guide.transition(ct).attr("x1", 0).attr("x2", sw).attr("y1", sy(goal)).attr("y2", sy(goal));
+    guideLabel.transition(ct).attr("y", Math.max(12, sy(goal) - 7)).text(`目標 ${goal}%`);
+    areaPath.transition(ct).attr("d", cumArea(cum));
+    simPath.transition(ct).attr("d", cumLine(cum));
+    shareDots.data(cum.slice(1), d => d.rank).transition(ct)
+      .attr("cy", d => sy(d.share))
+      .attr("fill", d => d.rank <= needed ? "#0f9b76" : "#b7c7bd")
+      .attr("r", d => d.rank <= needed ? 5 : 4);
+    shareMarker.transition(ct).attr("cx", sx(needed)).attr("cy", sy(achieved));
+    shareMarkerLabel.transition(ct).attr("x", sx(needed)).attr("y", Math.max(12, sy(achieved) - 13)).text(achieved.toFixed(1) + "%");
+
+    d3.select("#list-title").text(`上位${needed}か国(現在の順位)`);
+    d3.select("#top-list").selectAll("li")
+      .data(bySim.slice(0, needed), d => d.iso)
+      .join("li")
+      .html((d, i) => `<div class="row2"><span>${d.Country}${d.iso === selected && adjustment !== 0 ? "(仮想値)" : ""}</span>` +
+                      `<strong>${fmt(Math.round(d.sim))}(${(d.sim / totalSim * 100).toFixed(1)}%)</strong></div>`)
+      .order()
+      .on("mouseenter", (event, d) => hoverShare(d.iso))
+      .on("mouseleave", () => hoverShare(null));
+
+    const origNeeded = reach(baseCum, goal).rank;
+    const diff = needed - origNeeded;
+    const change = adjustment === 0 || !selected
+      ? "現在は元の2017年データのままです。"
+      : `仮想変化率(${byIso.get(selected).Country} ${formatSigned(adjustment)})を反映すると、元データでは${origNeeded}か国で到達していたのが${needed}か国になります` +
+        (diff === 0 ? "(必要国数は同じ)。" : `(${Math.abs(diff)}か国${diff < 0 ? "減少" : "増加"})。`);
+    d3.select("#share-insight").html(
+      `この${data.length}か国の合計を100%とすると、上位 <b>${needed}か国</b> で <b>${achieved.toFixed(1)}%</b> を占め、目標の <b>${goal}%</b> に到達します。${change}`);
+  }
+
+  function syncShareButton() {
+    d3.select("#share-link").classed("active", shareOn).attr("aria-pressed", shareOn)
+      .text(`グラフ・地図に反映: ${shareOn ? "ON" : "OFF"}`);
+  }
+
+  function setShare(v) {
+    shareGoal = v;
+    shareOn = true;   // スライダーを触ったら、グラフと地図にも反映する
+    d3.select("#share").property("value", v);
+    syncShareButton();
+    recompute();
+    renderShare(150);
+    refresh();
+  }
+  d3.select("#share").on("input", function() { setShare(+this.value); });
+  d3.selectAll("#share-panel button[data-share]").on("click", function() { setShare(+this.dataset.share); });
+  d3.select("#share-link").on("click", () => {
+    shareOn = !shareOn;
+    syncShareButton();
+    refresh();
+  });
+
+  // ---------- コントロール ----------
+  // 並び替えボタン
+  d3.selectAll(".controls button[data-sort]").on("click", function() {
+    sortMode = this.dataset.sort;
+    d3.selectAll(".controls button[data-sort]").classed("active", false);
+    d3.select(this).classed("active", true);
+    render();
+  });
+
+  // 上位N件のスライダー(元データの上位N件を表示)
+  // ドラッグ中はinputイベントが大量に来るので、1フレームに1回だけ描画し、
+  // アニメーションも短くして(150ms)、操作に素早く追従させる
+  d3.select("#topn")
+    .attr("max", data.length)
+    .property("value", data.length)
+    .on("input", function() {
+      topN = +this.value;
+      d3.select("#topn-val").text(topN);
+      scheduleRender(150, false);
+    });
+  d3.select("#topn-val").text(data.length);
+
+  // 対数スケールのON/OFFボタン
+  d3.select("#log-toggle").on("click", function() {
+    logScale = !logScale;
+    d3.select(this)
+      .classed("active", logScale)
+      .attr("aria-pressed", logScale)
+      .text(`対数スケール: ${logScale ? "ON" : "OFF"}`);
+    d3.select("#scale-hint").text(logScale
+      ? "対数スケール: 桁の違いが見やすくなります。基準は1で、線の長さは値に比例しません。"
+      : "");
+    render();
+  });
+
+  d3.select("#reset").on("click", resetAll);
+
+  syncShareButton();
+  render();
+});
+</script>

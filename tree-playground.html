@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>レシピの分かれ道(試作)</title>
+  <style>
+    :root {
+      --ink: #2b2620; --muted: #7a7168; --line: #e7ddd2; --bg: #faf7f2; --card: #fff;
+      --orange: #e5793a; --orange-soft: #fff0e4; --mint: #2e9d6f;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink);
+      font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; }
+    header { padding: 18px 24px 8px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 22px; margin: 0; }
+    header p { margin: 0; color: var(--muted); font-size: 13px; }
+    header a { margin-left: auto; color: var(--orange); font-size: 13px; }
+    .controls { margin: 8px 24px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; display: grid; gap: 10px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .row > label { font-size: 13px; color: var(--muted); min-width: 92px; }
+    input[type=text] { flex: 1; min-width: 240px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+    select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: #fff; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chips button { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+    .chips button.on { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .summary { font-size: 13px; color: var(--muted); }
+    .summary b { color: var(--orange); font-size: 18px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; margin: 8px 24px 32px; }
+    #tree-box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: auto; padding: 8px; }
+    #tree { display: block; }
+    .link { fill: none; stroke: #c9bfb3; stroke-width: 1.2px; }
+    .node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+    .node text { font-size: 12px; paint-order: stroke; stroke: #fff; stroke-width: 3px; cursor: pointer; }
+    .node.group text { font-weight: 700; }
+    .node.more text { fill: var(--orange); }
+    .node.leaf text.meta { fill: var(--muted); font-size: 11px; font-weight: 400; }
+    .node.selected text { fill: var(--orange); }
+    aside { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; font-size: 13px;
+      position: sticky; top: 12px; align-self: start; max-height: calc(100vh - 24px); overflow: auto; }
+    aside img { width: 100%; border-radius: 10px; aspect-ratio: 4 / 3; object-fit: cover; background: var(--orange-soft); }
+    aside h3 { margin: 8px 0 4px; font-size: 16px; }
+    aside .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--orange-soft); margin: 2px 2px 0 0; font-size: 12px; }
+    aside .have { color: var(--mint); } aside .need { color: #c0392b; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } aside { position: static; max-height: none; } }
+    /* サンバースト(feature/scatter-redesign-20261020 の style.css から移したもの) */
+    .sunburst-block { margin: 0 24px 32px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .sunburst-title { margin: 0 0 4px; font-size: 17px; color: #ad4315; }
+    .chart-hint { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
+    .sunburst-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+    #sunburst { flex: 1 1 420px; max-width: 640px; width: 100%; }
+    #sunburst-legend { flex: 0 1 260px; font-size: 13px; color: #6b625b; display: grid; gap: 10px; }
+    .sb-legend-row { display: flex; align-items: center; gap: 8px; }
+    .sb-grad { width: 56px; height: 12px; border-radius: 3px; flex: none; }
+    .sb-len { width: 56px; height: 0; border-top: 2px dashed #b8aea6; flex: none; }
+    .sb-ready { width: 14px; height: 14px; border: 2px solid #302b29; border-radius: 2px; flex: none; }
+    #sunburst path.ring, #sunburst-zoom path.ring { stroke: #fff; stroke-width: 1; cursor: pointer; }
+    #sunburst path.ring:hover { filter: brightness(1.06); }
+    #sunburst path.ring.zoomed { stroke: #302b29; stroke-width: 2; }
+    #sunburst path.recipe, #sunburst-zoom path.recipe { cursor: pointer; }
+    #sunburst path.recipe.ready, #sunburst-zoom path.recipe.ready { stroke: #302b29; stroke-width: 1; }
+    #sunburst path.recipe.selected, #sunburst-zoom path.recipe.selected { stroke: #c2410c; stroke-width: 2; filter: drop-shadow(0 1px 3px rgba(0,0,0,.3)); }
+    .sb-guide circle { fill: none; stroke: #d8cfc6; stroke-dasharray: 3 4; }
+    .sb-guide text { font-size: 10px; fill: #a39990; }
+    .ring-label { font-size: 11px; fill: #fff; font-weight: 700; pointer-events: none; }
+    .ring-label.depth2 { fill: #4a423c; font-weight: 600; }
+    .recipe-name { font-size: 10px; fill: #4a423c; pointer-events: none; }
+    .sb-center text { text-anchor: middle; pointer-events: none; }
+    .sb-center .c1 { font-size: 17px; font-weight: 700; fill: #302b29; }
+    .sb-center .c2 { font-size: 11px; fill: #6b625b; }
+    .sb-center .c3 { font-size: 10px; fill: #a39990; }
+    .sb-slider { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #4a423c; margin: 6px 0 4px; }
+    .sb-slider input[type="range"] { width: 180px; accent-color: var(--orange); }
+    .sb-slider b { min-width: 1.4em; text-align: center; font-size: 15px; color: #c2410c; }
+    .sb-slider .sb-slider-note { display: none; color: #a39990; }
+    .sb-slider.disabled { opacity: .55; }
+    .sb-slider.disabled .sb-slider-note { display: inline; }
+    .sunburst-zoom { margin-top: 16px; padding: 12px 16px; border: 1px solid #e8e0d8; border-radius: 16px; background: #fffdfa; }
+    .sunburst-zoom[hidden] { display: none; }
+    .sbz-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .sbz-head h4 { margin: 0; font-size: 16px; }
+    #sbz-close { border: 1px solid #d8cfc6; background: #fff; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+    #sunburst-zoom { width: 100%; max-width: 720px; display: block; margin: 0 auto; }
+    .sb-tip { position: absolute; z-index: 10; pointer-events: none; background: #fff; border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.12); max-width: 260px; }
+    .sb-tip[hidden] { display: none; }
+    /* つながり図 */
+    .network-block { margin: 0 24px 32px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+    .network-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 16px; align-items: start; }
+    #network-box { overflow: hidden; }
+    #network { display: block; width: 100%; background: #fffdfa; border-radius: 10px; }
+    .net-link { stroke-width: 1.2px; stroke-opacity: .7; }
+    .net-link.have { stroke: #8fcfb0; }
+    .net-link.missing { stroke: #e9a39a; stroke-dasharray: 3 3; }
+    .net-link.dim { stroke-opacity: .08; }
+    .net-node circle { stroke: #fff; stroke-width: 1.5px; cursor: pointer; }
+    .net-node.have circle { fill: #2e9d6f; }
+    .net-node.recipe circle { fill: #d9cfc4; }
+    .net-node.recipe.ready circle { fill: #2e9d6f; stroke: #1f6e4d; }
+    .net-node.recipe.selected circle { stroke: #c2410c; stroke-width: 3px; }
+    .net-node.missing circle { fill: #c0392b; }
+    .net-node text { font-size: 11px; paint-order: stroke; stroke: #fffdfa; stroke-width: 3px; pointer-events: none; }
+    .net-node.have text, .net-node.missing text { font-size: 12px; font-weight: 700; }
+    .net-node.recipe text { fill: #6b625b; font-size: 10px; }
+    .net-node.recipe.selected text { fill: #c2410c; font-weight: 700; }
+    .net-node.dim { opacity: .15; }
+    .net-node.focus circle { stroke: #302b29; stroke-width: 3px; }
+    #itree { display: block; width: 100%; background: #fffdfa; border-radius: 10px; cursor: grab; }
+    #itree line { stroke: #cfc3b6; stroke-width: 1px; }
+    #itree .it-ing circle { fill: #fff; stroke-width: 1.8px; cursor: pointer; }
+    #itree .it-ing.have circle { stroke: #2e9d6f; }
+    #itree .it-ing.need circle { stroke: #c0392b; }
+    #itree .it-root circle { fill: #302b29; stroke: #fff; stroke-width: 2px; }
+    #itree .it-recipe circle { stroke: #fff; stroke-width: 0.8px; cursor: pointer; }
+    #itree .it-recipe.selected circle { stroke: #302b29; stroke-width: 2.5px; }
+    #itree text { font-size: 11px; font-weight: 700; fill: #302b29; paint-order: stroke; stroke: #fffdfa; stroke-width: 3px; pointer-events: none; }
+    #itree .dim { opacity: .12; }
+    .net-mode { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; color: #4a423c; margin: 4px 0; }
+    .net-mode label { cursor: pointer; }
+    .net-node { cursor: pointer; }
+    #net-rank h4 { margin: 0 0 6px; font-size: 14px; }
+    #net-rank ol { margin: 0 0 6px; padding-left: 20px; font-size: 13px; }
+    #net-rank li { margin: 4px 0; }
+    #net-rank button { border: 1px solid #e9a39a; background: #fff3f1; color: #c0392b; border-radius: 999px; padding: 1px 10px; cursor: pointer; font-weight: 700; }
+    #net-rank span { color: var(--muted); font-size: 12px; }
+    @media (max-width: 900px) { .network-wrap { grid-template-columns: 1fr; } }
+    /* 作り方の言葉くらべ */
+    .sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(400px, 100%), 1fr)); gap: 12px; margin-top: 8px; }
+    .sw-card { border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px 6px; background: #fffdfa; min-width: 0; }
+    .sw-card h4 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+    .sw-card h4 small { color: var(--muted); font-weight: 400; font-size: 12px; }
+    .sw-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .sw-word { cursor: pointer; }
+    .sw-word:hover { text-decoration: underline; }
+    .sw-word.selected, .sw-bar-label.selected { fill: #302b29 !important; text-decoration: underline; }
+    .sw-note { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+    .sw-legend { font-size: 11px; fill: #6b625b; }
+    .sw-bar-label { font-size: 12px; fill: #4a423c; }
+    .sw-val { font-size: 10px; fill: #6b625b; }
+    .sw-hit { fill: transparent; cursor: pointer; }
+    .row:hover .sw-hit { fill: #f6efe7; }
+    #sw-info { margin-top: 10px; padding: 10px 12px; background: var(--orange-soft); border-radius: 10px; font-size: 13px; }
+    #sw-info h4 { margin: 0 0 4px; }
+    #sw-info p { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>レシピの分かれ道(試作)</h1>
+    <p>条件に合うレシピを「買い足しの数 → 種類 → ジャンル」のように枝分かれさせて見る試作です。枝の丸をクリックすると開いたり閉じたりします。</p>
+    <a href="search.html">← いつもの検索ページへ</a>
+  </header>
+
+  <section class="controls">
+    <div class="row">
+      <label for="have">今ある食材</label>
+      <input id="have" type="text" value="玉ねぎ、卵、豚肉" placeholder="「、」やスペース区切り(例: 玉ねぎ、卵)">
+    </div>
+    <div class="row">
+      <label>よく使う食材</label>
+      <div id="quick" class="chips"></div>
+    </div>
+    <div class="row">
+      <label>分け方の順番</label>
+      <select id="lv1"></select> → <select id="lv2"></select> → <select id="lv3"></select>
+      <span class="hint">同じ分け方は1回だけ使われます。「なし」で段を減らせます</span>
+    </div>
+    <div class="row">
+      <label for="max-missing">買い足し</label>
+      <select id="max-missing">
+        <option value="0">0個(今ある食材だけ)</option>
+        <option value="1">1個まで</option>
+        <option value="2" selected>2個まで</option>
+        <option value="3">3個まで</option>
+        <option value="99">制限なし</option>
+      </select>
+      <label for="max-time" style="min-width:auto">調理時間</label>
+      <select id="max-time">
+        <option value="15">15分以内</option>
+        <option value="30">30分以内</option>
+        <option value="60" selected>60分以内</option>
+        <option value="999">制限なし</option>
+      </select>
+      <label for="per-group" style="min-width:auto">1つの枝に出す料理</label>
+      <select id="per-group">
+        <option value="3">3品</option>
+        <option value="5" selected>5品</option>
+        <option value="10">10品</option>
+      </select>
+      <button id="expand-all" type="button">すべて開く</button>
+      <button id="collapse-all" type="button">閉じる</button>
+    </div>
+    <div class="row">
+      <span id="summary" class="summary"></span>
+      <span class="legend" id="legend"></span>
+    </div>
+  </section>
+
+  <main>
+    <div id="tree-box"><svg id="tree"></svg></div>
+    <aside id="detail"><p class="hint">右端の料理名をクリックすると、ここに詳細が出ます。</p></aside>
+  </main>
+
+  <section class="network-block">
+    <h3 class="sunburst-title">🕸 買い足し候補のつながり図</h3>
+    <p class="chart-hint">左 = 今ある食材(緑)、まん中 = 候補の料理(小さい丸。緑は買い足しなしで作れる)、右 = 足りない食材(赤)。料理と、その料理に使う食材を線で結んでいます。右の赤い丸が大きいほど多くの料理で必要な食材で、「これを1つ買い足せば作れる料理が増える食材」です。食材をクリックすると、つながる料理だけを強調します(もう一度で解除)。「列に並べる」は線が交差しにくい順に各列を並べ、「Force-directed」はつながりの強いものどうしが自然に集まる配置です。</p>
+    <div class="net-mode" role="radiogroup" aria-label="つながり図の並べ方">並べ方
+      <label><input type="radio" name="net-mode" value="columns" checked> 列に並べる</label>
+      <label><input type="radio" name="net-mode" value="force"> Force-directed(ばねと反発で配置。丸はドラッグで動かせます)</label>
+    </div>
+    <label class="sb-slider">図に出す料理
+      <input type="range" id="net-n" min="10" max="80" step="5" value="35" aria-label="つながり図に出す料理の数">
+      <b id="net-n-val">35</b> 品(上の条件に合う料理のうち、買い足しが少ない順)
+    </label>
+    <div class="network-wrap">
+      <div id="network-box"><svg id="network"></svg></div>
+      <div id="net-rank"></div>
+    </div>
+  </section>
+
+  <section class="network-block">
+    <h3 class="sunburst-title">🌳 共通の食材でつなぐ木(Force-directed tree)</h3>
+    <p class="chart-hint">上の条件に合う料理(塗った小さい丸)を、共通して使う食材(白抜きの丸)でつないだ木です。いちばん多くの料理が使う食材から順に枝を作り、枝の中でもまた共通の食材で小枝に分けます(3段まで)。食材の丸の縁が緑なら今ある食材、赤なら買い足す食材です。料理の丸の色は買い足しの数(上の凡例と同じ)。丸はドラッグで動かせ、ホイールで拡大できます。食材の丸をクリックすると、その枝だけを強調します(もう一度で解除)。</p>
+    <label class="sb-slider">図に出す料理
+      <input type="range" id="it-n" min="30" max="300" step="10" value="150" aria-label="木に出す料理の数">
+      <b id="it-n-val">150</b> 品(上の条件に合う料理のうち、買い足しが少ない順)
+    </label>
+    <div id="itree-box"><svg id="itree"></svg></div>
+  </section>
+
+  <section class="sunburst-block">
+    <h3 class="sunburst-title">🌀 スタイル・分類ごとの見取り図</h3>
+    <p class="chart-hint">上の条件(今ある食材・買い足し・調理時間)に合う料理を描きます。棒が太く短い料理ほど短時間で作れ(外へ長いほど時間がかかる)、色が濃いほど今ある食材をたくさん使えて買い足しも少ない料理です。棒をクリックすると右上に詳細を表示します。</p>
+    <label class="sb-slider">足りない食材が
+      <input type="range" id="sb-max-missing" min="1" max="10" step="1" value="4" aria-label="表示する料理の、足りない食材の数の上限">
+      <b id="sb-max-missing-val">4</b> 個以上の料理は表示しない
+      <small class="sb-slider-note">(食材を入力すると使えます)</small>
+    </label>
+    <div class="sunburst-wrap"><svg id="sunburst"></svg><div id="sunburst-legend"></div></div>
+    <div id="sunburst-zoom-block" class="sunburst-zoom" hidden>
+      <div class="sbz-head"><h4 id="sbz-title"></h4><button id="sbz-close" type="button">閉じる ×</button></div>
+      <p class="chart-hint">中の輪を押すとその分類に絞り、内側の輪を押すとスタイル全体に戻ります。</p>
+      <svg id="sunburst-zoom"></svg>
+    </div>
+  </section>
+
+  <section class="sunburst-block">
+    <h3 class="sunburst-title">📝 作り方の言葉くらべ(系統ごと)</h3>
+    <p class="chart-hint">全レシピの作り方の文章を単語に分け、和風・洋風・中華・韓国風・エスニックほか のそれぞれで「ほかの系統より特によく出てくる言葉」を大きく表示しています(食材名・分量・どの料理にも出る言葉は除いています)。上の食材の条件とは関係なく、全レシピで数えています。言葉にマウスを乗せると割合、クリックするとその言葉が出てくる料理の例を下に出します。</p>
+    <div class="net-mode" role="radiogroup" aria-label="表示の形">表示
+      <label><input type="radio" name="sw-view" value="cloud" checked> ワードクラウド</label>
+      <label><input type="radio" name="sw-view" value="bars"> 横棒グラフ(割合を正確に比べる)</label>
+    </div>
+    <label class="sb-slider">言葉の数
+      <input type="range" id="sw-n" min="15" max="60" step="5" value="35" aria-label="ワードクラウドに出す言葉の数">
+      <b id="sw-n-val">35</b> 語(各系統で、特徴の強い順)
+    </label>
+    <div id="sw-grid" class="sw-grid"></div>
+    <div id="sw-info"></div>
+  </section>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.7/build/d3.layout.cloud.js"></script>
+  <script src="data-adapter.js"></script>
+  <script src="tree-playground.js"></script>
+  <script src="step-words.js"></script>
+</body>
+</html>

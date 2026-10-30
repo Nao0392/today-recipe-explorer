@@ -1,0 +1,142 @@
+/* Search layout only — retain ALL typography, colors, button styles, and cards from style.css.
+   Scope adjustments to this page to avoid affecting the rest of the site. */
+body.search-layout-only #result { min-width: 0; }
+body.search-layout-only .brand-mark { flex: 0 0 58px; gap: 0; }
+
+/* 検索結果の見出しは、本文の先頭にロゴを重ねず文字を読みやすく保つ。 */
+body.search-layout-only .result-heading h2::before {
+  content: none;
+  display: none;
+}
+
+body.search-layout-only .result-heading-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 28px;
+}
+
+body.search-layout-only .result-brand-logo {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  transform: scale(1.25);
+  transform-origin: center;
+}
+body.search-layout-only .brand-logo { display: block; width: 58px; height: 58px; object-fit: contain; }
+
+@media (max-width: 600px) {
+  body.search-layout-only .brand-mark { flex-basis: 47px; }
+  body.search-layout-only .brand-logo { width: 47px; height: 47px; }
+  body.search-layout-only .result-heading-copy { gap: 20px; }
+  body.search-layout-only .result-brand-logo { width: 60px; height: 60px; border-radius: 14px; transform: scale(1.18); }
+}
+body.search-layout-only .header-search-icon { flex: 0 0 auto; width: 20px; height: 20px; stroke: var(--orange-dark); stroke-width: 1.9; stroke-linecap: round; }
+body.search-layout-only #controls > details > summary { display: flex; align-items: center; list-style: none; }
+body.search-layout-only #controls > details > summary::-webkit-details-marker { display: none; }
+body.search-layout-only #controls > details > summary::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; margin: 0 9px 0 3px; border-right: 2px solid var(--orange-dark); border-bottom: 2px solid var(--orange-dark); transform: rotate(-45deg); transition: transform .18s ease; }
+body.search-layout-only #controls > details[open] > summary::before { transform: rotate(45deg); }
+body.search-layout-only .filter-summary { display: inline-flex; align-items: center; gap: 8px; }
+body.search-layout-only .filter-icon { width: 17px; height: 17px; stroke: var(--orange-dark); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+body.search-layout-only .chart-toolbar h3::before { content: none; display: none; }
+body.search-layout-only .axis-icon { width: 19px; height: 19px; flex: 0 0 auto; margin-right: 2px; stroke: var(--orange-dark); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+body.search-layout-only .ingredient-filters .label::before { display: none; content: none; }
+body.search-layout-only .ingredient-filters .label { padding-left: 9px; border-left: 3px solid var(--line); }
+body.search-layout-only .ingredient-filters .label-have { border-left-color: #20a14a; }
+body.search-layout-only .ingredient-filters .label-exclude { border-left-color: #ef2e29; }
+body.search-layout-only .ingredient-filters .label-palette { border-left-color: var(--orange); }
+/* Keep the substitute option visually consistent with the other filter controls. */
+body.search-layout-only .ingredient-filters .checks {
+  margin: 10px 0 2px;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, color .18s ease;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle:hover {
+  border-color: #20a14a;
+  background: #f3fbf5;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle:has(input:checked) {
+  border-color: #20a14a;
+  background: #eef9f0;
+  color: #176b35;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle input {
+  appearance: none;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  place-content: center;
+  border: 1.5px solid #9ca6a0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle input::after {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  transform: rotate(-45deg) scale(0);
+  transition: transform .15s ease;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle input:checked {
+  border-color: #20a14a;
+  background: #20a14a;
+}
+body.search-layout-only .ingredient-filters .substitute-toggle input:checked::after {
+  transform: rotate(-45deg) scale(1);
+}
+body.search-layout-only .ingredient-filters .substitute-toggle:focus-within {
+  outline: 3px solid rgba(229, 187, 127, .45);
+  outline-offset: 2px;
+}
+body.search-layout-only .selected-ingredient-label::before { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 6px 1px 0; border-radius: 50%; background: currentColor; }
+body.search-layout-only .recipe-name-filter input[type="search"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  box-shadow: inset 0 1px 2px rgba(48,43,41,.03);
+}
+body.search-layout-only .recipe-name-filter input[type="search"]:focus {
+  outline: 3px solid rgba(249,115,22,.13);
+  border-color: var(--orange);
+}
+body.search-layout-only #result > .explorer-card { margin-top: 0; }
+/* Preserve the current recipe list, but remove a second vertical scroll container. */
+body.search-layout-only #candidate-scroll {
+  width: 100%;
+  margin-left: 0;
+  max-height: none;
+  height: auto;
+  overflow-y: visible;
+  overflow-x: auto;
+}
+body.search-layout-only .results-pagination { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  body.search-layout-only .top-picks-grid { grid-template-columns: 1fr; }
+}
