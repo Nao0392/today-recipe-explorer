@@ -1,6 +1,7 @@
 /* スマホ専用画面。PC版のスタイルは変更せず、この画面でだけ上書きする。 */
 :root {
   --mobile-header-h: 112px;
+  --mobile-tabbar-h: 68px;
 }
 
 html { background: var(--cream); }
@@ -99,13 +100,13 @@ body.mobile-search main {
   display: block;
   width: min(100%, 640px);
   margin: 0 auto;
-  padding: 10px 16px calc(28px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(var(--mobile-tabbar-h) + 28px + env(safe-area-inset-bottom));
 }
 
 body.mobile-search #controls-resizer { display: none; }
 body.mobile-search #result { width: 100%; min-width: 0; margin: 0; }
 
-/* 条件は画面下から開く。閉じている間はキーボード操作の対象からも外す。 */
+/* 条件は画面下から開く。閉じている間は影も含めて完全に隠す。 */
 body.mobile-search #controls {
   position: fixed;
   right: 0;
@@ -121,11 +122,17 @@ body.mobile-search #controls {
   border: 0;
   border-radius: 24px 24px 0 0;
   box-shadow: 0 -12px 32px rgba(48, 43, 41, .18);
-  transform: translateY(105%);
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(calc(100% + 24px));
   transition: transform .22s ease;
 }
 
-body.mobile-search.mobile-filters-open #controls { transform: translateY(0); }
+body.mobile-search.mobile-filters-open #controls {
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
 body.mobile-search.mobile-filters-open { overflow: hidden; }
 
 .mobile-filter-heading {
@@ -198,6 +205,14 @@ body.mobile-search .chart-toolbar select { min-height: 42px; }
 
 body.mobile-search #scatter,
 body.mobile-search #chart { min-width: 0; }
+/* 散布図はカードの余白に縛られず、画面幅をそのまま描画領域に使う。 */
+body.mobile-search .scatter-wrap {
+  width: 100vw;
+  margin-right: calc(50% - 50vw);
+  margin-left: calc(50% - 50vw);
+  overflow: visible;
+}
+body.mobile-search #scatter { width: 100%; min-width: 0; }
 body.mobile-search .explorer-card { padding: 14px; border-radius: 14px; }
 body.mobile-search .scatter-toolbar,
 body.mobile-search .scatter-actions,
@@ -250,7 +265,7 @@ body.mobile-search :focus-visible {
 .pwa-notice {
   position: fixed;
   right: 12px;
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  bottom: calc(var(--mobile-tabbar-h) + 12px + env(safe-area-inset-bottom));
   left: 12px;
   z-index: 100;
   display: flex;
@@ -300,6 +315,7 @@ body.mobile-home .home-header {
 body.mobile-home .header-inner { min-height: 60px; }
 body.mobile-home .header-inner nav { gap: 0; }
 body.mobile-home .header-nav-link { display: none; }
+body.mobile-home .home-main { padding-bottom: calc(var(--mobile-tabbar-h) + 40px); }
 body.mobile-home .hero { gap: 34px; padding-top: 34px; padding-bottom: 40px; }
 body.mobile-home .hero h1 { font-size: clamp(38px, 12vw, 56px); }
 body.mobile-home .mosaic { min-height: 300px; }
@@ -325,7 +341,7 @@ body.mobile-favorites .favorites-page-header .brand-mark { flex-basis: 42px; }
 body.mobile-favorites .favorites-page-header .favorites-brand-logo { width: 42px; height: 42px; }
 body.mobile-favorites .favorites-page-nav { width: 100%; gap: 6px; }
 body.mobile-favorites .favorites-page-nav > a { flex: 1; min-height: 40px; padding: 8px 5px; text-align: center; font-size: 11px; }
-body.mobile-favorites main.favorites-page-main { padding: 16px 12px calc(32px + env(safe-area-inset-bottom)); }
+body.mobile-favorites main.favorites-page-main { padding: 16px 12px calc(var(--mobile-tabbar-h) + 32px + env(safe-area-inset-bottom)); }
 body.mobile-favorites .favorites-page-hero,
 body.mobile-favorites .favorites-explorer,
 body.mobile-favorites .favorite-cards-section { padding: 17px; }
@@ -357,7 +373,7 @@ body.mobile-map .global-nav {
 
 body.mobile-map .global-nav a { flex: 0 0 auto; min-height: 38px; padding: 8px 10px; font-size: 11px; }
 body.mobile-map .back-link { min-height: 38px; padding: 8px 10px; font-size: 10px; }
-body.mobile-map .page-shell { padding: 14px 12px calc(30px + env(safe-area-inset-bottom)); }
+body.mobile-map .page-shell { padding: 14px 12px calc(var(--mobile-tabbar-h) + 30px + env(safe-area-inset-bottom)); }
 body.mobile-map .toolbar { gap: 8px; }
 body.mobile-map .recipe-search { width: 100%; }
 body.mobile-map .recipe-search input { min-width: 0; width: 100%; }
@@ -374,3 +390,38 @@ body.mobile-map .graph-actions button { min-height: 40px; }
 body.mobile-map .rank-strip { grid-auto-columns: minmax(180px, 78%); }
 body.mobile-map .process-body { grid-template-columns: 1fr; }
 body.mobile-map .process-step { grid-template-columns: 58px 1fr; }
+
+/* ---------- 共通下部ナビゲーション ---------- */
+.mobile-tabbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: var(--mobile-tabbar-h);
+  padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 -5px 18px rgba(48, 43, 41, .09);
+  backdrop-filter: blur(12px);
+}
+
+.mobile-tabbar a {
+  display: grid;
+  min-height: 48px;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  border-radius: 11px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.mobile-tabbar .mobile-tabbar-icon { font-size: 20px; line-height: 1; }
+.mobile-tabbar a[aria-current="page"] { color: var(--orange-dark); background: var(--orange-soft); }
+body.mobile-search.mobile-filters-open .mobile-tabbar { visibility: hidden; }

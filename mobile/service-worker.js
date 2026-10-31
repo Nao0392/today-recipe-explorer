@@ -1,5 +1,5 @@
 /* スマホ版PWA用: アプリ本体を先に保存し、データと画像は必要になった時だけ保存する。 */
-const VERSION = "today-recipe-mobile-v1";
+const VERSION = "today-recipe-mobile-v2";
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const IMAGE_CACHE = `${VERSION}-images`;
@@ -14,6 +14,7 @@ const APP_SHELL = [
   "./mobile.css",
   "./mobile-bootstrap.js",
   "./page-bootstrap.js",
+  "./mobile-tabbar.js",
   "./pwa-register.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

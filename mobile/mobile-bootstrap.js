@@ -129,6 +129,7 @@
       for (const src of scripts) await loadScript(src);
       routeLinks();
       document.body.classList.add("mobile-ready");
+      window.dispatchEvent(new Event("mobile:ready"));
     } catch (error) {
       console.error(error);
       document.body.className = "mobile-search mobile-load-error";

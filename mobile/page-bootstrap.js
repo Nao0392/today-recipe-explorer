@@ -79,6 +79,7 @@
       await runSourceScripts(source);
       routeLinks();
       document.body.classList.add("mobile-ready");
+      window.dispatchEvent(new Event("mobile:ready"));
     } catch (error) {
       console.error(error);
       document.body.className = "mobile-page mobile-load-error";
